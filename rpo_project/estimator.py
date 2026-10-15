@@ -4,6 +4,7 @@ from typing import Tuple
 import numpy as np
 from .attitude import capture_point_kinematics_lvlh, quat_from_z_angle, wrap_pi
 from .beacon import BeaconPacket
+from .config import SimConfig
 from .dynamics import cw_state_transition_matrix, propagate_cw_rk4
 
 class RPOEstimator:
@@ -15,27 +16,29 @@ class RPOEstimator:
         init_omega_est: float,
         vision_pos_sigma_m: float,
         vision_angle_sigma_rad: float,
+        cfg: SimConfig = SimConfig(),
     ) -> None:
+        self.cfg = cfg
         self.s_hat = np.concatenate([init_pos_est, init_vel_est]).astype(float)
-        pos_var = max(vision_pos_sigma_m ** 2, 0.05 ** 2)
-        vel_var = 0.03 ** 2
+        pos_var = max(vision_pos_sigma_m ** 2, cfg.est_min_pos_sigma_m ** 2)
+        vel_var = cfg.est_init_vel_sigma_mps ** 2
         self.P_trans = np.diag([pos_var, pos_var, pos_var, vel_var, vel_var, vel_var])
 
         self.att_hat = np.array([wrap_pi(init_theta_est), init_omega_est], dtype=float)
-        ang_var = max(vision_angle_sigma_rad ** 2, math.radians(1.0) ** 2)
-        rate_var = math.radians(3.0) ** 2
+        ang_var = max(vision_angle_sigma_rad ** 2, cfg.est_min_angle_sigma_rad ** 2)
+        rate_var = cfg.est_init_rate_sigma_rad_s ** 2
         self.P_att = np.diag([ang_var, rate_var])
 
     def predict(self, dt: float, u_cmd_lvlh: np.ndarray) -> None:
         self.s_hat = propagate_cw_rk4(self.s_hat, u_cmd_lvlh, dt)
         phi = cw_state_transition_matrix(dt)
-        q_pos = (0.005 * dt) ** 2
-        q_vel = (0.003 * math.sqrt(dt)) ** 2
+        q_pos = (self.cfg.est_pos_process_noise_mps * dt) ** 2
+        q_vel = (self.cfg.est_vel_process_noise_mps15 * math.sqrt(dt)) ** 2
         self.P_trans = phi @ self.P_trans @ phi.T + np.diag([q_pos, q_pos, q_pos, q_vel, q_vel, q_vel])
 
         F_att = np.array([[1.0, dt], [0.0, 1.0]], dtype=float)
         self.att_hat = np.array([wrap_pi(self.att_hat[0] + self.att_hat[1] * dt), self.att_hat[1]], dtype=float)
-        q_omega = math.radians(0.015) ** 2
+        q_omega = self.cfg.est_rate_process_noise_rad_s15 ** 2
         Q_att = q_omega * np.array([[(dt ** 3) / 3.0, (dt ** 2) / 2.0], [(dt ** 2) / 2.0, dt]], dtype=float)
         self.P_att = F_att @ self.P_att @ F_att.T + Q_att
 
@@ -65,7 +68,7 @@ class RPOEstimator:
         if packet.timestamp_s > current_time_s + 1e-9 or packet.arrival_time_s > current_time_s + 1e-9:
             raise ValueError("cannot assimilate a beacon packet before its timestamp/arrival")
         age_s = max(0.0, current_time_s - packet.timestamp_s)
-        q_omega = math.radians(0.015) ** 2
+        q_omega = self.cfg.est_rate_process_noise_rad_s15 ** 2
         # Approximate stale-rate fusion for the constant-rate study. Inflate
         # noise with age; this is not an exact out-of-sequence filter.
         effective_var = max((gyro_sigma_rad_s ** 2) + q_omega * age_s, 1e-10)
