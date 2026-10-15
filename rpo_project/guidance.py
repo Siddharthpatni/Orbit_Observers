@@ -4,6 +4,7 @@ from typing import Tuple
 import numpy as np
 from .config import SimConfig
 from .estimator import RPOEstimator
+from .dynamics import cw_derivative
 from .safety import check_estimator_abort_gates
 
 def compute_guidance_command(
@@ -52,7 +53,23 @@ def compute_guidance_command(
         r_ref = (r_hat / max(est_dist_to_origin, 1e-6)) * cfg.hold_distance_m + 2.5 * tangent
         v_ref = np.zeros(3, dtype=float)
 
-    a_cmd = -cfg.kp_pos * (r_hat - r_ref) - cfg.kd_vel * (v_hat - v_ref)
+    if cfg.controller == "legacy_pd":
+        a_cmd = -cfg.kp_pos * (r_hat - r_ref) - cfg.kd_vel * (v_hat - v_ref)
+    else:
+        # Limit the closing reference before saturation destroys PD damping.
+        # Reserve half the acceleration for braking/tracking by default.
+        error = r_ref - r_hat
+        distance = float(np.linalg.norm(error))
+        closing_speed = min(
+            cfg.max_closing_speed_mps,
+            cfg.kp_pos / cfg.kd_vel * distance,
+            math.sqrt(2.0 * cfg.braking_accel_fraction * cfg.a_max_mps2 * distance),
+        )
+        closing_velocity = error * (closing_speed / max(distance, 1e-12))
+        # Constant-rate rotating-reference acceleration, using estimated rate.
+        a_ref = np.cross(omega_vec_hat, v_ref)
+        a_cmd = cfg.kd_vel * (v_ref + closing_velocity - v_hat) + a_ref
+        a_cmd -= cw_derivative(estimator.s_hat, np.zeros(3))[3:]
     safety_margin_m = 1.48
     if est_dist_to_origin < safety_margin_m:
         radial_unit = r_hat / max(est_dist_to_origin, 1e-6)

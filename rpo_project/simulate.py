@@ -1,7 +1,7 @@
 """Single independent deterministic/stochastic closed-loop RPO simulation run (Section 12)."""
 from dataclasses import dataclass
 import math
-from typing import Dict, List
+from typing import Dict, List, Optional
 import numpy as np
 from .attitude import capture_point_kinematics_lvlh, propagate_attitude_rk4, quat_from_z_angle, wrap_pi
 from .beacon import BeaconPacket, generate_beacon_packet_if_due
@@ -29,7 +29,22 @@ def run_single_simulation(
     latency_s: float = 0.0,
     cfg: SimConfig = SimConfig(),
     deterministic_zero_noise: bool = False,
+    trajectory: Optional[List[Dict[str, object]]] = None,
 ) -> Dict[str, object]:
+    if scenario_name not in SCENARIOS:
+        raise ValueError(f"unknown scenario: {scenario_name}")
+    if not isinstance(seed, (int, np.integer)) or seed < 0:
+        raise ValueError("seed must be a nonnegative integer")
+    for name, value in (("tumble_deg_s", tumble_deg_s), ("vision_sigma_m", vision_sigma_m),
+                        ("beacon_rate_hz", beacon_rate_hz), ("latency_s", latency_s)):
+        if not math.isfinite(value) or value < 0:
+            raise ValueError(f"{name} must be finite and nonnegative")
+    if not math.isfinite(beacon_packet_loss) or not 0 <= beacon_packet_loss <= 1:
+        raise ValueError("beacon_packet_loss must be in [0, 1]")
+    if beacon_rate_hz > 0:
+        interval = 1.0 / (beacon_rate_hz * cfg.dt_s)
+        if interval < 1 or not math.isclose(interval, round(interval), abs_tol=1e-9):
+            raise ValueError("beacon period must be an integer multiple of dt_s; reduce dt_s")
     scen = SCENARIOS[scenario_name]
     n_steps = int(round(cfg.max_duration_s / cfg.dt_s))
     rho_cap_body = np.array(cfg.capture_offset_body_m, dtype=float)
@@ -66,14 +81,14 @@ def run_single_simulation(
     beacon_queue: List[BeaconPacket] = []
     beacon_step_interval = max(1, int(round(1.0 / (max(beacon_rate_hz, 1e-6) * cfg.dt_s)))) if beacon_rate_hz > 0 else 999999
 
-    min_clearance_m = float(np.linalg.norm(truth.chaser_state_lvlh[:3]))
+    min_clearance_m = float(np.linalg.norm(truth.chaser_state_lvlh[:3])) - cfg.keepout_radius_m
     delta_v_mps = 0.0
     dwell_accum_s = 0.0
     in_terminal_phase = False
     pred_errors_m: List[float] = []
     status, terminal_pass, aborted, unsafe, rel_speed_final, elapsed_s = "TIMEOUT", False, False, False, 0.0, 0.0
 
-    for k in range(1, n_steps):
+    for k in range(n_steps):
         t_s = k * cfg.dt_s
         elapsed_s = t_s
         _, _, n_cap_true = capture_point_kinematics_lvlh(truth.target_quat_bl, truth.target_omega_body, rho_cap_body)
@@ -82,11 +97,12 @@ def run_single_simulation(
             eff_pos_sigma, eff_ang_sigma, scen.vision_dropout_prob, cfg.fov_occlusion_cos_limit,
             float(vis_uniform_seq[k]), vis_pos_noise_seq[k], float(vis_ang_noise_seq[k]), deterministic_zero_noise
         )
-        if obs is not None:
+        # Index zero already supplied the initial noisy pose observation.
+        if obs is not None and k > 0:
             estimator.update_vision(obs[0], obs[1], max(eff_pos_sigma, 1e-4), max(eff_ang_sigma, 1e-4))
 
         pkt = generate_beacon_packet_if_due(
-            k, t_s, beacon_step_interval, scen.beacon_enabled, scen.beacon_has_rate,
+            k, t_s, beacon_step_interval, scen.beacon_enabled and beacon_rate_hz > 0 and k > 0, scen.beacon_has_rate,
             beacon_packet_loss, latency_s, float(truth.target_omega_body[2]), cfg.gyro_noise_rad_s,
             float(beacon_uniform_seq[k]), float(beacon_gyro_noise_seq[k]), deterministic_zero_noise
         )
@@ -112,7 +128,8 @@ def run_single_simulation(
         )
         if abort_trig:
             aborted, status = True, abort_reason
-            delta_v_mps += 0.08
+            # Stop at the decision. Retreat/contact dynamics are not simulated,
+            # so do not invent an impulsive abort manoeuvre or its fuel cost.
             _, v_cap_true, _ = capture_point_kinematics_lvlh(truth.target_quat_bl, truth.target_omega_body, rho_cap_body)
             rel_speed_final = float(np.linalg.norm(truth.chaser_state_lvlh[3:] - v_cap_true))
             break
@@ -124,14 +141,30 @@ def run_single_simulation(
 
         truth.chaser_state_lvlh = propagate_cw_rk4(truth.chaser_state_lvlh, a_applied, cfg.dt_s)
         truth.target_quat_bl, truth.target_omega_body = propagate_attitude_rk4(truth.target_quat_bl, truth.target_omega_body, cfg.dt_s, inertia_diag)
-        truth.t_s = t_s
+        truth.t_s = (k + 1) * cfg.dt_s
+        elapsed_s = truth.t_s
         estimator.predict(cfg.dt_s, a_cmd)
 
-        min_clearance_m = min(min_clearance_m, float(np.linalg.norm(truth.chaser_state_lvlh[:3])))
+        clearance_m = float(np.linalg.norm(truth.chaser_state_lvlh[:3])) - cfg.keepout_radius_m
+        min_clearance_m = min(min_clearance_m, clearance_m)
         r_cap_true, v_cap_true, n_cap_true = capture_point_kinematics_lvlh(truth.target_quat_bl, truth.target_omega_body, rho_cap_body)
         terminal_pass, unsafe, dwell_accum_s, rel_speed_final = check_truth_terminal_or_unsafe(
             truth.chaser_state_lvlh[:3], truth.chaser_state_lvlh[3:], r_cap_true, v_cap_true, n_cap_true, dwell_accum_s, cfg
         )
+        if trajectory is not None:
+            trajectory.append({
+                "time_s": elapsed_s,
+                **{f"{axis}_m": float(truth.chaser_state_lvlh[i]) for i, axis in enumerate("xyz")},
+                **{f"capture_{axis}_m": float(r_cap_true[i]) for i, axis in enumerate("xyz")},
+                "position_error_m": float(np.linalg.norm(truth.chaser_state_lvlh[:3] - r_cap_true)),
+                "relative_speed_mps": rel_speed_final,
+                "clearance_m": clearance_m,
+                "acceleration_mps2": float(np.linalg.norm(a_applied)),
+                "delta_v_mps": delta_v_mps,
+                "terminal_phase": in_terminal_phase,
+                "dwell_s": dwell_accum_s,
+                "angle_std_rad": estimator.angle_std_rad,
+            })
         if unsafe:
             status = "UNSAFE_KEEPOUT_VIOLATION"
             break
@@ -154,7 +187,7 @@ def run_single_simulation(
         "aborted": bool(aborted),
         "unsafe": bool(unsafe),
         "minimum_clearance_m": float(min_clearance_m),
-        "capture_point_error_m": float(np.mean(pred_errors_m)) if pred_errors_m else 0.0,
+        "capture_point_error_m": float(np.sqrt(np.mean(np.square(pred_errors_m)))) if pred_errors_m else float("nan"),
         "relative_speed_mps": float(rel_speed_final),
         "delta_v_mps": float(delta_v_mps),
         "elapsed_s": float(elapsed_s),

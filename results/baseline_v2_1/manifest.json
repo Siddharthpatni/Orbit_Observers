@@ -1,0 +1,20 @@
+{
+  "model_version": "Phase2-RPO-MC-v2.1",
+  "source_commit": "25e53a1518bf519655e8af26ea6d2d1714c365c1",
+  "command": "python -m rpo_project.montecarlo --mode pilot --runs 30 --sweep-runs 15",
+  "seeds_main": [
+    0,
+    29
+  ],
+  "seeds_secondary": [
+    0,
+    14
+  ],
+  "limitations": [
+    "capture_point_error_m is temporal MEAN, not temporal RMS",
+    "minimum_clearance_m is center distance, not margin",
+    "abort delta-v includes an unpropagated 0.08 m/s allowance",
+    "timing labels are offset by one step"
+  ],
+  "role": "historical baseline; use corrected legacy_pd comparison to isolate controller changes"
+}

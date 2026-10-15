@@ -45,9 +45,10 @@ class RPOEstimator:
         R_t = np.eye(3, dtype=float) * max(pos_sigma_m ** 2, 1e-6)
         y_t = meas_chaser_pos_lvlh - (H_t @ self.s_hat)
         S_t = H_t @ self.P_trans @ H_t.T + R_t
-        K_t = self.P_trans @ H_t.T @ np.linalg.inv(S_t)
+        K_t = np.linalg.solve(S_t, H_t @ self.P_trans).T
         self.s_hat = self.s_hat + K_t @ y_t
-        self.P_trans = (np.eye(6) - K_t @ H_t) @ self.P_trans
+        A_t = np.eye(6) - K_t @ H_t
+        self.P_trans = A_t @ self.P_trans @ A_t.T + K_t @ R_t @ K_t.T
 
         h_a = np.array([1.0, 0.0], dtype=float)
         r_a = max(angle_sigma_rad ** 2, 1e-8)
@@ -55,23 +56,29 @@ class RPOEstimator:
         s_a = float(h_a @ self.P_att @ h_a + r_a)
         k_a = (self.P_att @ h_a) / s_a
         self.att_hat = np.array([wrap_pi(self.att_hat[0] + k_a[0] * residual), self.att_hat[1] + k_a[1] * residual], dtype=float)
-        self.P_att = (np.eye(2) - np.outer(k_a, h_a)) @ self.P_att
+        A_a = np.eye(2) - np.outer(k_a, h_a)
+        self.P_att = A_a @ self.P_att @ A_a.T + r_a * np.outer(k_a, k_a)
 
     def update_beacon_packet(self, packet: BeaconPacket, current_time_s: float, gyro_sigma_rad_s: float) -> None:
         if not packet.has_rate or packet.omega_z_rad_s is None:
             return
+        if packet.timestamp_s > current_time_s + 1e-9 or packet.arrival_time_s > current_time_s + 1e-9:
+            raise ValueError("cannot assimilate a beacon packet before its timestamp/arrival")
         age_s = max(0.0, current_time_s - packet.timestamp_s)
         q_omega = math.radians(0.015) ** 2
-        effective_var = (gyro_sigma_rad_s ** 2) + q_omega * age_s
+        # Approximate stale-rate fusion for the constant-rate study. Inflate
+        # noise with age; this is not an exact out-of-sequence filter.
+        effective_var = max((gyro_sigma_rad_s ** 2) + q_omega * age_s, 1e-10)
         h_r = np.array([0.0, 1.0], dtype=float)
         residual = packet.omega_z_rad_s - self.att_hat[1]
-        s_r = float(h_r @ self.P_att @ h_r + max(effective_var, 1e-10))
+        s_r = float(h_r @ self.P_att @ h_r + effective_var)
         k_r = (self.P_att @ h_r) / s_r
         self.att_hat = np.array([
-            wrap_pi(self.att_hat[0] + (k_r[0] + k_r[1] * age_s) * residual),
+            wrap_pi(self.att_hat[0] + k_r[0] * residual),
             self.att_hat[1] + k_r[1] * residual,
         ], dtype=float)
-        self.P_att = (np.eye(2) - np.outer(k_r, h_r)) @ self.P_att
+        A_r = np.eye(2) - np.outer(k_r, h_r)
+        self.P_att = A_r @ self.P_att @ A_r.T + effective_var * np.outer(k_r, k_r)
 
     def predict_capture_point(self, horizon_s: float, rho_cap_body: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         theta_pred = wrap_pi(self.att_hat[0] + self.att_hat[1] * horizon_s)
