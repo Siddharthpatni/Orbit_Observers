@@ -1,5 +1,15 @@
 # Detailed Performance & Failure Mode Audit: RPO Simulation vs. Monte Carlo
 
+> **Historical document.** This audit explains the v2.1 → v3.0 controller change (`legacy_pd` → `braking_pd`)
+> using the archived results in `results/baseline_v2_1/` and `results/optimized_v3_0/`. It is kept for traceability.
+> Model v4.0 adds further Monte Carlo dispersions, new seeding and new studies, so its numbers are not directly
+> comparable — for current results see [`results/v4_0/report.md`](../results/v4_0/report.md); for the method see
+> [MONTE_CARLO_METHOD.md](MONTE_CARLO_METHOD.md).
+>
+> **Correction from v4.0:** the "100% elimination of collisions" below means 0 violations in 1 050 runs. The
+> v4.0 campaign (35 100 runs) found rare shallow keep-out violations (≤ 1 cm, ~0.1–0.3%) whenever optical position
+> noise is ≥ 12.5 cm, so `braking_pd` reduces but does not eliminate them under poor navigation.
+
 **Document ID:** AUD-RPO-2026-V3  
 **Status:** Approved & Verified  
 **Model Versions Audited:** `Phase2-RPO-MC-v2.1` (Baseline) vs. `Phase2-RPO-MC-v3.0` (Optimized)  

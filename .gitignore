@@ -6,3 +6,8 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# MeluXina
+.venv-meluxina/
+rpo_mc_*.log
+results/meluxina_*/

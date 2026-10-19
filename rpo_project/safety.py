@@ -11,11 +11,13 @@ def check_estimator_abort_gates(
     elapsed_s: float,
     delta_v_used_mps: float,
 ) -> Tuple[bool, str]:
+    if estimator.position_std_m > cfg.max_allowed_position_std_m:
+        return True, "ABORT_POSITION_COVARIANCE"
     omega_hat = abs(float(estimator.att_hat[1]))
     ang_std = estimator.angle_std_rad
-    if elapsed_s >= 10.0 and omega_hat > cfg.max_safe_target_omega_rad_s:
+    if elapsed_s >= cfg.rate_gate_start_s and omega_hat > cfg.max_safe_target_omega_rad_s:
         return True, "ABORT_EXCESS_TUMBLE_RATE"
-    if elapsed_s >= 12.0 and ang_std > cfg.max_allowed_angle_std_rad:
+    if elapsed_s >= cfg.covariance_gate_start_s and ang_std > cfg.max_allowed_angle_std_rad:
         return True, "ABORT_NAVIGATION_COVARIANCE"
     if delta_v_used_mps >= cfg.max_delta_v_mps:
         return True, "ABORT_DELTA_V_BUDGET"
