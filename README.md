@@ -22,6 +22,8 @@ v4.1 adds propagated abort retreat, a position-covariance gate, tested IOS comma
 | Wanting to run the code | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — install, commands, output files, troubleshooting |
 | Running on the MeluXina supercomputer | [hpc/README.md](hpc/README.md) — SSH, storage, Python setup, Slurm jobs, monitoring |
 | Wanting to understand how it is built | [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) — subsystems and flight modes, no background assumed |
+| Scope: what the study must show |  [docs/SCOPE_ARCHITECTURE.md](docs/SCOPE_ARCHITECTURE.md) — client states, layered elements, tiers, workstreams, roadmap (from the decks and guide) |
+| Costs and break-even (assumption-based) | [docs/ECONOMICS_MODEL.md](docs/ECONOMICS_MODEL.md) · [docs/BEACON_BENCH_PLAN.md](docs/BEACON_BENCH_PLAN.md) |
 | Seeing the full platform design | [docs/PLATFORM_ARCHITECTURE.md](docs/PLATFORM_ARCHITECTURE.md) — ground platform + RPO simulator target architecture |
 | Reviewing the statistics | [docs/MONTE_CARLO_METHOD.md](docs/MONTE_CARLO_METHOD.md) — dispersions, paired seeds, studies, confidence intervals, sample sizes |
 | Reviewing the physics | [docs/MODEL_REFERENCE.md](docs/MODEL_REFERENCE.md) — every equation, parameter and limitation |

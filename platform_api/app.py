@@ -4,7 +4,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .audit import AuditLog
+from .domain import Domain, RuleViolation
 from .feasibility import FeasibilityTable
+
+
+class DecideIn(BaseModel):
+    decision: str
+    notes: str = ""
+    role: str
+    actor: str
+
+
+class AdvanceIn(BaseModel):
+    role: str
+    actor: str
 
 
 class AuditIn(BaseModel):
@@ -16,9 +29,10 @@ class AuditIn(BaseModel):
 
 def create_app(audit_path: str = ":memory:") -> FastAPI:
     app = FastAPI(title="Serviceable-Client Platform API", version="0.1.0")
-    app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_methods=["GET", "POST"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_methods=["GET", "POST", "PUT"], allow_headers=["*"])
     table = FeasibilityTable()
     audit = AuditLog(audit_path)
+    domain = Domain(audit_path if audit_path != ":memory:" else ":memory:", audit, table)
 
     @app.get("/health")
     def health():
@@ -45,6 +59,30 @@ def create_app(audit_path: str = ":memory:") -> FastAPI:
     @app.get("/audit")
     def audit_list(limit: int = 100):
         return audit.list(limit)
+
+    @app.put("/sync")
+    def sync(snapshot: dict):
+        return domain.sync(snapshot)
+
+    @app.get("/{kind}", include_in_schema=True)
+    def list_kind(kind: str):
+        if kind not in ("satellites", "cases", "approvals", "missions"):
+            raise HTTPException(404, "unknown collection")
+        return domain.list(kind)
+
+    @app.post("/approvals/{id_}/decide")
+    def decide(id_: str, body: DecideIn):
+        try:
+            return domain.decide_approval(id_, body.decision, body.notes, body.role, body.actor)
+        except RuleViolation as e:
+            raise HTTPException(e.code, e.reason)
+
+    @app.post("/missions/{id_}/advance")
+    def advance(id_: str, body: AdvanceIn):
+        try:
+            return domain.advance_mission(id_, body.role, body.actor)
+        except RuleViolation as e:
+            raise HTTPException(e.code, e.reason)
 
     @app.get("/audit/verify")
     def audit_verify():

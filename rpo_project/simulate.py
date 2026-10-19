@@ -114,7 +114,9 @@ def run_single_simulation(
     deterministic_zero_noise: bool = False,
     trajectory: Optional[List[Dict[str, object]]] = None,
     master_seed: int = 0,
+    omega_factor_override: Optional[float] = None,
 ) -> Dict[str, object]:
+    """``omega_factor_override`` replaces the tier's spin factor (used to couple a physical IOS detumble); None keeps the tier value."""
     if scenario_name not in SCENARIOS:
         raise ValueError(f"unknown scenario: {scenario_name}")
     for name, value in (("seed", seed), ("master_seed", master_seed)):
@@ -150,7 +152,10 @@ def run_single_simulation(
     misalign_rotvec = cfg.thruster_misalign_sigma_rad * draws.thruster_misalign_n
     thrust_misalign = rotation_from_rotvec(misalign_rotvec)
 
-    omega_true = math.radians(float(tumble_deg_s)) * scen.omega_factor * tumble_axis
+    omega_factor = scen.omega_factor if omega_factor_override is None else float(omega_factor_override)
+    if not math.isfinite(omega_factor) or omega_factor < 0:
+        raise ValueError("omega_factor_override must be finite and nonnegative")
+    omega_true = math.radians(float(tumble_deg_s)) * omega_factor * tumble_axis
     q_init = quat_from_z_angle(theta0_rad)
     _, _, n_cap_init = capture_point_kinematics_lvlh(q_init, omega_true, rho_cap_body)
     chaser_pos_init = n_cap_init * cfg.chaser_start_distance_m + pos_init_noise

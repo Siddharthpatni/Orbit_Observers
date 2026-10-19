@@ -4,7 +4,7 @@
 
 ## Implementation update — 19 October 2026
 
-v4.1 now propagates active abort retreats and includes a position-covariance gate. The standalone `ios.py` has tested handshake, freshness, heartbeat, docked-abort and separation guards, plus detumbling and derated-power estimates. See [implementation status](IMPLEMENTATION_STATUS.md) and [v4.1 validation](../results/v4_1_validation/report.md). The original v4.0 evidence and proposed hardware gates below remain historical/proposed; standalone IOS logic is not yet coupled to the RPO dynamics.
+v4.1 now propagates active abort retreats and includes a position-covariance gate. The standalone `ios.py` has tested handshake, freshness, heartbeat, docked-abort and separation guards, plus detumbling and derated-power estimates. See [implementation status](IMPLEMENTATION_STATUS.md) and [v4.1 validation](../results/v4_1_validation/report.md). The original v4.0 evidence and proposed hardware gates below remain historical/proposed; IOS logic is now driven by the approach outcome (`ios_coupling.py`) but not by joint attitude-control dynamics.
 
 ## 1. Executive summary and decision requested
 

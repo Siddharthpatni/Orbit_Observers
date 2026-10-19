@@ -163,12 +163,15 @@ sequenceDiagram
 | 1 | `serviceTier` / `estTumbleDegS` on frontend `Satellite`, seeded per customer (demo values) | **Done** (`lib/types.ts`, `data/seed.ts`) |
 | 2 | Feasibility table exported from campaign (`tools/export_feasibility.py` → `data/feasibility.json`) and shown on the Missions page (`FeasibilityCard`) | **Done**; out-of-range tumble rates are flagged, no interpolation |
 | 3 | FastAPI service `platform_api/`: `/feasibility`, `/feasibility/tiers`, `/audit`, `/audit/verify`, `/health` | **Done**, 6 tests; cases, approvals and missions are **not** yet server-side |
-| 4 | Frontend uses the backend when `VITE_API_URL` is set, otherwise the bundled table; audit writes use a SHA-256 hash chain (tamper-evident, SQLite) | **Partly done**: feasibility fetch wired; the Zustand store still holds cases/approvals/missions and does not yet post audit events |
-| 5 | Couple `ios.py` to the RPO loop; approval gate drives IOS handover | Open (needs new physics and tests) |
-| 6 | Hardware-in-loop beacon bench | Open (hardware) |
-| 7 | Costed economics and break-even by tier | Open (cost data) |
+| 4 | UI mirrors cases, approvals, missions, satellite tiers (`PUT /sync`) and every audit event (`POST /audit`) to the server when `VITE_API_URL` is set | **Done** (`startBackendMirror`). The browser store is still the interactive source in demo mode; it is not yet replaced by server reads |
+| 4b | Server-side rules: only approvers decide, notes required, gate approval before a mission leaves a stage, feasibility before rendezvous, role check on advance | **Done**, `platform_api/domain.py`, tested. The UI does not yet call these endpoints; it enforces the same rules locally |
+| 5 | `ios.py` coupled to the RPO loop: ground approval → IOS permit → (C3) physical detumble → RPO run → handover/mate/release, or abort from the current IOS state; server runs this at the rendezvous gate | **Done**, `rpo_project/ios_coupling.py`, 8 tests. Latch/load-path are inputs (no contact model); credential is a simulation token |
+| 6 | Beacon bench | **Planned, not built**: survival sizing, bench tests B1–B7 with model-derived limits, virtual bench in [BEACON_BENCH_PLAN.md](BEACON_BENCH_PLAN.md). No hardware measurements exist |
+| 7 | Costed economics and break-even by tier | **First pass on assumptions**: [ECONOMICS_MODEL.md](ECONOMICS_MODEL.md). Every price, mass and probability is assumed; only outcome probabilities, Δv and propellant come from the simulator |
 
 Run: `pip install -r requirements-platform.txt && uvicorn platform_api.app:app --port 8000`, then `VITE_API_URL=http://localhost:8000 npm run dev` in `satellite-ops-platform/`. Refresh the table after a new campaign: `python tools/export_feasibility.py results/<campaign>`.
+
+See also [SCOPE_ARCHITECTURE.md](SCOPE_ARCHITECTURE.md) for the architecture derived from the Phase 2 decks and guide (client states, layered elements, product tiers, workstreams, roadmap).
 
 ## 10. Honest limits
 

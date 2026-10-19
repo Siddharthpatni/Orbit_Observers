@@ -62,3 +62,40 @@ export async function fetchFeasibility(tier: string, tumble: number): Promise<Fe
   }
   return lookupFeasibility(tier, tumble)
 }
+
+// --- Backend mirror ---------------------------------------------------------------------------
+/**
+ * When VITE_API_URL is set, mirror cases/approvals/missions/satellite tiers to the server (PUT /sync) and
+ * forward every new audit event to the hash-chained audit log (POST /audit). The browser store stays the
+ * interactive source in demo mode; the server re-enforces the rules (see platform_api/domain.py).
+ * Failures are ignored so the demo keeps working offline.
+ */
+export function startBackendMirror(): (() => void) | undefined {
+  const base = import.meta.env.VITE_API_URL as string | undefined
+  if (!base) return undefined
+  const seenAudit = new Set<string>()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const push = async () => {
+    const s = useStore.getState()
+    try {
+      await fetch(`${base}/sync`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          satellites: s.satellites.map((x) => ({ id: x.id, serviceTier: x.serviceTier, estTumbleDegS: x.estTumbleDegS })),
+          cases: s.cases, approvals: s.approvals, missions: s.missions,
+        }),
+      })
+      for (const e of [...s.audit].reverse()) {
+        if (seenAudit.has(e.id)) continue
+        seenAudit.add(e.id)
+        await fetch(`${base}/audit`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: e.category, actor: e.actor, summary: e.summary, detail: { id: e.id, satId: e.satId, ref: e.ref, severity: e.severity, note: e.detail } }),
+        })
+      }
+    } catch { /* offline: ignore */ }
+  }
+  const unsub = useStore.subscribe(() => { clearTimeout(timer); timer = setTimeout(push, 800) })
+  timer = setTimeout(push, 800)
+  return () => { unsub(); clearTimeout(timer) }
+}

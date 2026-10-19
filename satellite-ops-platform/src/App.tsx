@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { useStore } from './store/useStore'
+import { startBackendMirror } from './services/api'
 import { Layout } from './components/layout/Layout'
 import Dashboard from './pages/Dashboard'
 import Fleet from './pages/Fleet'
@@ -19,6 +20,7 @@ export default function App() {
     const id = setInterval(() => useStore.getState().tick(), 2500)
     return () => clearInterval(id)
   }, [])
+  useEffect(() => startBackendMirror(), [])
   return (
     <Routes>
       <Route element={<Layout />}>
