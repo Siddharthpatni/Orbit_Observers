@@ -14,11 +14,12 @@
 | Assumption-based economics and break-even | Implemented, 6 tests | `rpo_project/economics.py`, [ECONOMICS_MODEL.md](ECONOMICS_MODEL.md) |
 | Beacon survival sizing, bench plan B1–B7, virtual bench | Implemented (no hardware) | `rpo_project/bench.py`, [BEACON_BENCH_PLAN.md](BEACON_BENCH_PLAN.md) |
 | Ground API: feasibility, hash-chained audit, server-side approval/mission rules | Implemented, 10 tests | `platform_api/` |
+| On-board recorder + pass-based downlink + ground hash-chain check; dashboard page "Logs & Downlink" | Implemented, 6 tests; demo data simulated | `onboard/recorder.py`, `tools/export_downlink_demo.py`, `pages/Downlink.tsx` |
 | New-seed validation campaign (master seed 20261019) | Run, 6,140 simulations | [results/v4_1_validation/report.md](../results/v4_1_validation/report.md) |
 
 ## Verification
 
-`python -m unittest discover -s rpo_project/tests -t .` → **60 tests, all pass** (run in the project `.venv`, 19 Oct 2026). Includes the 10 Handbook §13 V&V checks, statistics against hand-computed values, chunk/merge integrity, parallel = serial, retreat and IOS tests.
+`python -m unittest discover -s rpo_project/tests -t .` → **66 tests, all pass** (run in the project `.venv`, 19 Oct 2026). Includes the 10 Handbook §13 V&V checks, statistics against hand-computed values, chunk/merge integrity, parallel = serial, retreat and IOS tests.
 
 ## v4.1 validation results (descriptive)
 

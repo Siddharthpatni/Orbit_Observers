@@ -5,6 +5,7 @@ import { startBackendMirror } from './services/api'
 import { Layout } from './components/layout/Layout'
 import Dashboard from './pages/Dashboard'
 import Fleet from './pages/Fleet'
+import Downlink from './pages/Downlink'
 import Monitoring from './pages/Monitoring'
 import Agents from './pages/Agents'
 import Comms from './pages/Comms'
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="monitoring" element={<Monitoring />} />
         <Route path="agents" element={<Agents />} />
         <Route path="comms" element={<Comms />} />
+        <Route path="downlink" element={<Downlink />} />
         <Route path="policies" element={<Policies />} />
         <Route path="approvals" element={<Approvals />} />
         <Route path="maintenance" element={<Maintenance />} />

@@ -156,6 +156,10 @@ sequenceDiagram
 | Simulation | CLI, Slurm on MeluXina | Same code run as batch jobs; results indexed by `config_hash`; interactive pilot (30 runs ≈ 1 min) for what-if |
 | Security | none | Authenticated, replay-protected commands (CCSDS SDLS-style **[verify]**), RBAC, signed audit export |
 
+## 8b. Satellite-side logs and audits (downlink)
+
+`onboard/recorder.py` is the part meant to run **on the satellite** (standard library only, no numpy or web framework). It keeps a bounded buffer of hash-chained records (audit, critical event, event, housekeeping), sends them only during contact passes in priority order within the pass byte budget, retries lost packets until acknowledged, drops housekeeping first when full (audit last) and leaves a visible sequence gap for any drop. The ground side recomputes every hash and checks the chain. The dashboard page **Logs & Downlink** shows, per satellite, when records were created, first sent and received, how long delivery took, which passes were held or missed, and what was dropped. Data come from `python tools/export_downlink_demo.py` (24 simulated hours; traffic, link rates, loss and outages are assumptions). The hash chain is tamper-evident, not a signature; flight use needs authenticated signing.
+
 ## 9. Build path and status
 
 | Step | Deliverable | Status |

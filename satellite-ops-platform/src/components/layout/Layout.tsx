@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Bell, ChevronLeft, ChevronRight, LayoutDashboard, Satellite, Activity, Bot, Radio, ScrollText, ShieldCheck, Wrench, Rocket, FileSearch, RotateCcw, Circle } from 'lucide-react'
+import { Bell, ChevronLeft, ChevronRight, LayoutDashboard, Satellite, Activity, Bot, Radio, ScrollText, ShieldCheck, Wrench, Rocket, FileSearch, RotateCcw, Circle, Download } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { useScoped } from '@/store/hooks'
 import { ROLES } from '@/lib/access'
@@ -16,6 +16,7 @@ const NAV = [
   { key: 'monitoring', to: '/monitoring', label: 'AI Health Monitoring', icon: Activity },
   { key: 'agents', to: '/agents', label: 'Agent Operations', icon: Bot },
   { key: 'comms', to: '/comms', label: 'Communications', icon: Radio },
+  { key: 'downlink', to: '/downlink', label: 'Logs & Downlink', icon: Download },
   { key: 'policies', to: '/policies', label: 'Policy & Compliance', icon: ScrollText },
   { key: 'approvals', to: '/approvals', label: 'Approvals', icon: ShieldCheck },
   { key: 'maintenance', to: '/maintenance', label: 'Maintenance', icon: Wrench },
