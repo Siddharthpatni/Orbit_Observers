@@ -1,0 +1,194 @@
+{
+ "assumptions": {
+  "revenue_m": 40.0,
+  "margin": 0.6,
+  "years": 5.0,
+  "service_year": 10.0,
+  "discount": 0.08,
+  "price_m": 75.0,
+  "p_need": 0.1,
+  "attempts": 3
+ },
+ "rescue": {
+  "gross_value_m": 120.0,
+  "price_m": 75.0,
+  "net_m": 45.0,
+  "net_discounted_m": 20.843706963810785
+ },
+ "at3": {
+  "C0_unprepared": {
+   "p_success": 0.6396,
+   "p_lost": 0.2964,
+   "benefit_m": 1.2919763324448477,
+   "cost_m": 0.0,
+   "net_m": 1.2919763324448477,
+   "visits": 21,
+   "successes": 13.4316,
+   "breakeven_price_m": 32.014056404300305
+  },
+  "C1_fiducials": {
+   "p_success": 0.978512,
+   "p_lost": 0.021272,
+   "benefit_m": 2.0366258232936807,
+   "cost_m": 0.045,
+   "net_m": 1.9916258232936808,
+   "visits": 22,
+   "successes": 21.527264000000002,
+   "breakeven_price_m": 19.974670260001453
+  },
+  "C2_beacon": {
+   "p_success": 1.0,
+   "p_lost": 0.0,
+   "benefit_m": 2.084370696381079,
+   "cost_m": 0.40405973231342884,
+   "net_m": 1.6803109640676501,
+   "visits": 22,
+   "successes": 22.0,
+   "breakeven_price_m": 19.545454545454547
+  },
+  "C3_ios_mode": {
+   "p_success": 1.0,
+   "p_lost": 0.0,
+   "benefit_m": 2.084370696381079,
+   "cost_m": 1.149059732313429,
+   "net_m": 0.9353109640676498,
+   "visits": 22,
+   "successes": 22.0,
+   "breakeven_price_m": 19.545454545454547
+  }
+ },
+ "at5": {
+  "C0_unprepared": {
+   "p_success": 0.0,
+   "p_lost": 0.4880000000000001,
+   "benefit_m": -0.06781152665559778,
+   "cost_m": 0.0,
+   "net_m": -0.06781152665559778,
+   "visits": 21,
+   "successes": 0.0,
+   "breakeven_price_m": null
+  },
+  "C1_fiducials": {
+   "p_success": 0.0,
+   "p_lost": 0.142625,
+   "benefit_m": -0.01981889137142342,
+   "cost_m": 0.045,
+   "net_m": -0.06481889137142342,
+   "visits": 21,
+   "successes": 0.0,
+   "breakeven_price_m": null
+  },
+  "C2_beacon": {
+   "p_success": 0.0,
+   "p_lost": 0.115264,
+   "benefit_m": -0.016016860263177914,
+   "cost_m": 0.40405973231342884,
+   "net_m": -0.42007659257660673,
+   "visits": 21,
+   "successes": 0.0,
+   "breakeven_price_m": null
+  },
+  "C3_ios_mode": {
+   "p_success": 1.0,
+   "p_lost": 0.0,
+   "benefit_m": 2.084370696381079,
+   "cost_m": 1.149059732313429,
+   "net_m": 0.9353109640676498,
+   "visits": 22,
+   "successes": 22.0,
+   "breakeven_price_m": 19.545454545454547
+  }
+ },
+ "incremental_vs_c0_at3": {
+  "C1_fiducials": {
+   "extra_benefit_m": 0.744649490848833,
+   "extra_cost_m": 0.045,
+   "roi_x": 16.5477664633074,
+   "net_m": 0.699649490848833
+  },
+  "C2_beacon": {
+   "extra_benefit_m": 0.7923943639362312,
+   "extra_cost_m": 0.40405973231342884,
+   "roi_x": 1.961082237518218,
+   "net_m": 0.38833463162280235
+  },
+  "C3_ios_mode": {
+   "extra_benefit_m": 0.7923943639362312,
+   "extra_cost_m": 1.149059732313429,
+   "roi_x": 0.6896024128709871,
+   "net_m": -0.35666536837719787
+  }
+ },
+ "ios_at5_vs_c0": {
+  "extra_benefit_m": 2.1521822230366765,
+  "extra_cost_m": 1.149059732313429,
+  "net_m": 1.0031224907232474
+ },
+ "sens_p": {
+  "p": [
+   0.01,
+   0.02,
+   0.05,
+   0.1,
+   0.2
+  ],
+  "c1_vs_c0_net_m": [
+   0.02946494908488331,
+   0.10392989816976661,
+   0.32732474542441664,
+   0.6996494908488332,
+   1.4442989816976664
+  ],
+  "c3_vs_c0_at5_net_m": [
+   -0.9338415100097613,
+   -0.7186232877060936,
+   -0.07296862079509071,
+   1.0031224907232477,
+   3.155304713759924
+  ]
+ },
+ "servicer": {
+  "lifecycle_cost_m": 430.0,
+  "price_m": 75.0,
+  "profit_m": {
+   "C0_unprepared": 577.37,
+   "C1_fiducials": 1184.5448000000004,
+   "C2_beacon": 1220.0,
+   "C3_ios_mode": 1220.0
+  }
+ },
+ "product_tiers": {
+  "1": {
+   "unit_eur": 0.17,
+   "mass_kg": 3.5,
+   "launch_eur": 0.105,
+   "nre_share_eur": 0.085,
+   "total_eur": 0.36
+  },
+  "2": {
+   "unit_eur": 0.82,
+   "mass_kg": 5.301991077114295,
+   "launch_eur": 0.15905973231342882,
+   "nre_share_eur": 0.485,
+   "total_eur": 1.4640597323134288
+  },
+  "3": {
+   "unit_eur": 1.42,
+   "mass_kg": 9.301991077114295,
+   "launch_eur": 0.27905973231342884,
+   "nre_share_eur": 0.485,
+   "total_eur": 2.184059732313429
+  },
+  "4": {
+   "unit_eur": 4.42,
+   "mass_kg": 34.301991077114295,
+   "launch_eur": 1.029059732313429,
+   "nre_share_eur": 1.235,
+   "total_eur": 6.684059732313429
+  }
+ },
+ "fleet10": {
+  "c1_extra_cost_m": 0.44999999999999996,
+  "c1_extra_benefit_m": 7.44649490848833
+ }
+}
