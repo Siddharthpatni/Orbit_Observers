@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+body { @apply bg-bg text-ink font-sans antialiased; font-variant-numeric: tabular-nums; }
+button, [role='button'], select { cursor: pointer; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #3a4658; border-radius: 4px; }
+:focus-visible { outline: 2px solid #00c2ff; outline-offset: 2px; }
+.btn-ok { @apply bg-ok/15 border-ok/50 text-ok hover:bg-ok/25; }
+.btn-bad { @apply bg-bad/15 border-bad/50 text-bad hover:bg-bad/25; }
+.btn-warn { @apply bg-warn/15 border-warn/50 text-warn hover:bg-warn/25; }
+.th { @apply text-left text-xs uppercase tracking-wider text-mute font-medium px-3 py-2; }
+.td { @apply px-3 py-2 text-sm border-t border-line; }
+
+@keyframes shimmer { 0% { background-position: -200% 0 } 100% { background-position: 200% 0 } }
+.skeleton { background: linear-gradient(90deg, #171a21 25%, #232a36 50%, #171a21 75%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+@media print { aside, header, .fixed { display: none !important; } main { overflow: visible !important; } }
+
+/* Design language: pure black, Poppins, blue-to-cyan gradient, pill controls (after the TechCompany template) */
+:root { --grad: linear-gradient(90deg, #0d52ad, #00c2ff); }
+.grad-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.card { @apply bg-panel border border-line rounded-2xl; }
+.btn { @apply inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium text-ink border-2 border-transparent transition duration-200 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed;
+  background-image: linear-gradient(#0e1014, #0e1014), linear-gradient(90deg, #2c3544, #3a4658); background-origin: border-box; background-clip: padding-box, border-box; }
+.btn:hover:not(:disabled) { background-image: linear-gradient(#0e1014, #0e1014), var(--grad); }
+.btn-primary { @apply text-accent;
+  background-image: linear-gradient(#000, #000), var(--grad); }
+.btn-primary:hover:not(:disabled) { background-image: var(--grad), var(--grad); @apply text-white; }
+.input { @apply bg-black border border-line rounded-lg px-3 py-1.5 text-sm placeholder:text-mute focus:border-accent outline-none; }
+.skeleton { background: linear-gradient(90deg, #11141a 25%, #1d222b 50%, #11141a 75%) !important; background-size: 200% 100%; }
