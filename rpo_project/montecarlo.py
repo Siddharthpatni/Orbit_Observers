@@ -20,6 +20,7 @@ from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import itertools
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -27,6 +28,7 @@ import platform
 import subprocess
 import sys
 import time
+import zipfile
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
@@ -236,6 +238,16 @@ def run_campaign(runs_per_cell: int, out_dir: Path, chunk_id: Optional[int] = No
     out_dir.mkdir(parents=True, exist_ok=True)
 
     manifest = build_manifest(selected, runs_per_cell, sweep_runs, cfg, master_seed, workers, chunk_id, num_chunks)
+    root = Path(__file__).resolve().parent.parent
+    sources = {str(p.relative_to(root)): p.read_bytes() for p in sorted((root / "rpo_project").rglob("*.py"))}
+    sources["requirements.txt"] = (root / "requirements.txt").read_bytes()
+    manifest["source_files_sha256"] = {name: hashlib.sha256(data).hexdigest() for name, data in sources.items()}
+    manifest["source_sha256"] = hashlib.sha256(json.dumps(manifest["source_files_sha256"], sort_keys=True).encode()).hexdigest()
+    archive = "source.zip" if chunk_id is None else f"source_chunk_{chunk_id:03d}.zip"
+    with zipfile.ZipFile(out_dir / archive, "w", compression=zipfile.ZIP_DEFLATED) as snapshot:
+        for name, data in sources.items():
+            snapshot.writestr(name, data)
+    manifest["source_archive"] = archive
     start = time.perf_counter()
     rows = execute_groups(groups, cfg, master_seed, workers)
     manifest["wall_time_s"] = round(time.perf_counter() - start, 1)
@@ -257,7 +269,7 @@ def run_campaign(runs_per_cell: int, out_dir: Path, chunk_id: Optional[int] = No
 
 
 # Manifest fields that must agree between chunks of one campaign.
-_CAMPAIGN_KEYS = ("model_version", "config_hash", "master_seed", "runs_per_cell", "sweep_runs_per_cell", "studies")
+_CAMPAIGN_KEYS = ("model_version", "config_hash", "master_seed", "runs_per_cell", "sweep_runs_per_cell", "studies", "source_sha256")
 
 
 def merge_chunks(out_dir: Path, analyse: bool = True) -> None:
@@ -270,10 +282,13 @@ def merge_chunks(out_dir: Path, analyse: bool = True) -> None:
     first = next(iter(manifests.values()))
     for cid, m in manifests.items():
         for key in _CAMPAIGN_KEYS:
-            if m[key] != first[key]:
+            if m.get(key) != first.get(key):
                 raise ValueError(f"chunk {cid} disagrees on '{key}'; chunks come from different campaigns")
     num_chunks = first["chunk"]["num_chunks"]
     missing = sorted(set(range(num_chunks)) - set(manifests))
+    if any(m["chunk"]["num_chunks"] != num_chunks or m["chunk"]["id"] != cid
+           for cid, m in manifests.items()) or set(manifests) - set(range(num_chunks)):
+        raise ValueError("inconsistent chunk identifiers or chunk counts")
     if missing:
         raise ValueError(f"missing chunks {missing} of {num_chunks}; rerun them before merging")
 

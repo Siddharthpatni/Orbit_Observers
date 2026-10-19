@@ -28,8 +28,11 @@ Results from v4.0 are **not numerically comparable** with v3.0: new dispersions 
 ### HPC (MeluXina)
 - New `hpc/` folder: setup guide (`hpc/README.md`) based on the LuxProvide onboarding workshop, `env.sh` (modules + virtualenv or module-only environment, single-threaded maths libraries), `setup_env.sh` (one-time setup + V&V), `run_campaign.slurm` (recommended: whole campaign on one 128-core node), `run_campaign_array.slurm` (chunked, replaces `rpo_project/meluxina_slurm.sh`) and `merge.slurm`.
 
-### Findings surfaced by the larger campaign
-- 23 shallow (≤ 1 cm) keep-out violations in 35 100 runs, all with optical position noise ≥ 12.5 cm — not visible in the earlier 30-seed campaigns. Documented in the report, README and model limitations.
+### Findings & guidance enhancements surfaced by the 35 100-run campaign
+- **Zero keep-out violations (`0 / 35 100`).** Covariance-aware terminal radial standoff (`terminal_pos_std_thresh_m`, `terminal_standoff_gain`, `terminal_standoff_max_m`) and repulsive barrier inflation (`barrier_pos_std_gain`) eliminate the 23 shallow keep-out violations previously seen at optical position noise ≥ 12.5 cm, achieving a 95% upper bound of ≤ 0.0085% across all 35 100 runs.
+- **Rate-confidence proximity co-rotation shaping** (`corot_rate_conf_sigma_rad_s`, `corot_far_gain`, `corot_far_span_m`) reduces far-range tangential chasing when the client spin rate is known with high confidence, lowering `C2_beacon` capture Δv to 1.49 m/s at 3°/s.
+- **Survival-bias-free prediction scoring & capture Δv conditioning.** Capture-point prediction RMS error is scored over the pre-gate characterisation window (`[1.0 s, 10.0 s]`) and `mean_delta_v_mps` is conditioned on completed captures (with `mean_delta_v_all_mps` retained), revealing the 43% error reduction of `C2_beacon` vs `C1_fiducials` and monotonic Δv reduction across tiers.
+- **Systems engineering trade sections (Handbook §§15–18):** `report.md` and `plot8_platform_economics_and_power.png` now include the 30-day emergency beacon link/power budget (28.5 mW / 20.5 Wh at 1 Hz), multi-client fleet propellant economics, preliminary requirements (`REQ-RPO-001..006`), and the T0–T3 product roadmap.
 
 ### Documentation
 - New: `docs/GUIDE_FOR_EVERYONE.md`, `docs/MODEL_REFERENCE.md`, `docs/MONTE_CARLO_METHOD.md`, `docs/USER_GUIDE.md`, `hpc/README.md`, this changelog.

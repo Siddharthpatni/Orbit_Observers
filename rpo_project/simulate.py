@@ -13,7 +13,7 @@ uniforms, which the simulation rescales with the scenario/config sigmas. Hence:
   adding a draw to one subsystem never shifts the random numbers of another.
 * ``(master_seed, seed)`` alone reproduces a run exactly.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 from typing import Dict, List, Optional
 import numpy as np
@@ -22,7 +22,7 @@ from .beacon import BeaconPacket, generate_beacon_packet_if_due
 from .config import MODEL_VERSION, SCENARIOS, SimConfig
 from .dynamics import propagate_cw_rk4
 from .estimator import RPOEstimator
-from .guidance import compute_guidance_command
+from .guidance import compute_guidance_command, compute_retreat_command
 from .safety import check_truth_terminal_or_unsafe
 from .sensors import sense_target_with_noise_and_occlusion
 
@@ -171,6 +171,13 @@ def run_single_simulation(
     beacon_queue: List[BeaconPacket] = []
     beacon_active = scen.beacon_enabled and beacon_step_interval > 0
     gyro_sigma = 0.0 if deterministic_zero_noise else cfg.gyro_noise_rad_s
+    retreat_steps = int(round(cfg.retreat_duration_s / cfg.dt_s))
+    extension = RunDraws.zero(retreat_steps) if deterministic_zero_noise else sample_run_draws(
+        seed, master_seed + 2**64, retreat_steps)
+    draws = replace(draws, **{
+        field: np.concatenate([getattr(draws, field), getattr(extension, field)])
+        for field in ("vis_uniform", "vis_pos_n", "vis_ang_n", "beacon_uniform", "beacon_gyro_n", "thruster_n")
+    })
 
     min_clearance_m = float(np.linalg.norm(truth.chaser_state_lvlh[:3])) - cfg.keepout_radius_m
     delta_v_mps = 0.0
@@ -181,7 +188,24 @@ def run_single_simulation(
     vision_updates, rate_updates, steps_run = 0, 0, 0
     status, terminal_pass, aborted, unsafe, rel_speed_final, elapsed_s = "TIMEOUT", False, False, False, 0.0, 0.0
 
-    for k in range(n_steps):
+    abort_reason_saved = ""
+    abort_time_s = float("nan")
+    abort_delta_v_mps = 0.0
+    retreat_complete = False
+    retreat_reference = np.zeros(3)
+    retreat_status = "NOT_REQUIRED"
+    initial_unsafe = min_clearance_m < 0
+
+    for k in range(n_steps + retreat_steps):
+        if initial_unsafe:
+            unsafe, status = True, "UNSAFE_KEEPOUT_VIOLATION"
+            break
+        if not aborted and k >= n_steps:
+            break
+        if aborted and k * cfg.dt_s - abort_time_s >= cfg.retreat_duration_s - 1e-9:
+            if retreat_status == "IN_PROGRESS":
+                retreat_status = "TIMEOUT"
+            break
         t_s = k * cfg.dt_s
         elapsed_s = t_s
         steps_run = k + 1
@@ -215,31 +239,42 @@ def run_single_simulation(
                 rem_q.append(p)
         beacon_queue = rem_q
 
-        # Scoring only: compare predicted vs true future capture point.
-        if t_s >= cfg.prediction_metric_start_s:
+        # Scoring only: compare predicted vs true future capture point over the
+        # pre-gate characterisation window so all tiers are scored without survival bias.
+        if cfg.prediction_metric_start_s <= t_s <= cfg.rate_gate_start_s:
             cp_hat, _, _ = estimator.predict_capture_point(cfg.prediction_horizon_s, rho_cap_body)
             q_fut, w_fut = propagate_attitude_rk4(truth.target_quat_bl, truth.target_omega_body, cfg.prediction_horizon_s, inertia_diag)
             cp_true, _, _ = capture_point_kinematics_lvlh(q_fut, w_fut, rho_cap_body)
             pred_errors_m.append(float(np.linalg.norm(cp_hat - cp_true)))
 
         # --- Guide & control (estimate only; never truth) --------------------
-        a_cmd, in_terminal_phase, abort_trig, abort_reason = compute_guidance_command(
-            estimator, cfg, rho_cap_body, t_s, delta_v_mps, in_terminal_phase
-        )
-        if in_terminal_phase and math.isnan(terminal_phase_entry_s):
-            terminal_phase_entry_s = t_s
-        if abort_trig:
-            aborted, status = True, abort_reason
-            # Stop at the decision. Retreat/contact dynamics are not simulated,
-            # so do not invent an impulsive abort manoeuvre or its fuel cost.
-            _, v_cap_true, _ = capture_point_kinematics_lvlh(truth.target_quat_bl, truth.target_omega_body, rho_cap_body)
-            rel_speed_final = float(np.linalg.norm(truth.chaser_state_lvlh[3:] - v_cap_true))
-            break
+        if not aborted:
+            a_cmd, in_terminal_phase, abort_trig, abort_reason = compute_guidance_command(
+                estimator, cfg, rho_cap_body, t_s, delta_v_mps, in_terminal_phase
+            )
+            if in_terminal_phase and math.isnan(terminal_phase_entry_s):
+                terminal_phase_entry_s = t_s
+            if abort_trig:
+                aborted, status = True, abort_reason
+                abort_reason_saved, abort_time_s, abort_delta_v_mps = abort_reason, t_s, delta_v_mps
+                retreat_status = "IN_PROGRESS"
+                direction = estimator.s_hat[:3]
+                norm = float(np.linalg.norm(direction))
+                retreat_reference = cfg.chaser_start_distance_m * direction / max(norm, 1e-12)
+                if norm < 1e-12:
+                    retreat_reference = np.array([cfg.chaser_start_distance_m, 0.0, 0.0])
+        if aborted:
+            a_cmd = compute_retreat_command(estimator, cfg, retreat_reference)
 
         # --- Actuate: gain bias, misalignment and execution noise -------------
         a_applied = thrust_misalign @ (a_cmd * (thrust_gain + cfg.thruster_noise_sigma_frac * draws.thruster_n[k]))
         if float(np.linalg.norm(a_applied)) > cfg.a_max_mps2:
             a_applied = a_applied * (cfg.a_max_mps2 / float(np.linalg.norm(a_applied)))
+        if aborted:
+            reserve = max(0.0, cfg.retreat_delta_v_reserve_mps - (delta_v_mps - abort_delta_v_mps))
+            scale = min(1.0, reserve / max(float(np.linalg.norm(a_applied)) * cfg.dt_s, 1e-12))
+            a_applied *= scale
+            a_cmd *= scale
         delta_v_mps += float(np.linalg.norm(a_applied)) * cfg.dt_s
 
         # --- Propagate truth and the estimator's prediction ------------------
@@ -256,6 +291,17 @@ def run_single_simulation(
         terminal_pass, unsafe, dwell_accum_s, rel_speed_final = check_truth_terminal_or_unsafe(
             truth.chaser_state_lvlh[:3], truth.chaser_state_lvlh[3:], r_cap_true, v_cap_true, n_cap_true, dwell_accum_s, cfg
         )
+        if aborted:
+            terminal_pass, dwell_accum_s = False, 0.0
+            # Completion is commanded using estimates; truth is only used to score that decision.
+            estimated_settled = (np.linalg.norm(estimator.s_hat[:3] - retreat_reference) <= cfg.retreat_position_tol_m
+                                 and np.linalg.norm(estimator.s_hat[3:]) <= cfg.retreat_speed_tol_mps)
+            if estimated_settled:
+                retreat_complete = bool(np.linalg.norm(truth.chaser_state_lvlh[:3] - retreat_reference) <= cfg.retreat_position_tol_m
+                                        and np.linalg.norm(truth.chaser_state_lvlh[3:]) <= cfg.retreat_speed_tol_mps)
+                retreat_status = "COMPLETE" if retreat_complete else "ESTIMATE_MISMATCH"
+            elif delta_v_mps - abort_delta_v_mps >= cfg.retreat_delta_v_reserve_mps - 1e-9:
+                retreat_status = "RESERVE_EXHAUSTED"
         if trajectory is not None:
             trajectory.append({
                 "time_s": elapsed_s,
@@ -267,7 +313,8 @@ def run_single_simulation(
                 "clearance_m": clearance_m,
                 "acceleration_mps2": float(np.linalg.norm(a_applied)),
                 "delta_v_mps": delta_v_mps,
-                "terminal_phase": in_terminal_phase,
+                "terminal_phase": in_terminal_phase and not aborted,
+                "retreat_phase": aborted,
                 "dwell_s": dwell_accum_s,
                 "angle_std_rad": estimator.angle_std_rad,
                 "rate_est_deg_s": math.degrees(float(estimator.att_hat[1])),
@@ -275,6 +322,10 @@ def run_single_simulation(
             })
         if unsafe:
             status = "UNSAFE_KEEPOUT_VIOLATION"
+            if aborted:
+                retreat_status = "UNSAFE"
+            break
+        if aborted and retreat_status in {"COMPLETE", "ESTIMATE_MISMATCH"}:
             break
         if terminal_pass:
             status = "TERMINAL_CAPTURE_WINDOW_MET"
@@ -292,7 +343,7 @@ def run_single_simulation(
         "theta0_rad": float(theta0_rad),
         "status": str(status),
         "terminal_pass": bool(terminal_pass),
-        "aborted": bool(aborted),
+        "aborted": bool(aborted and not unsafe),
         "unsafe": bool(unsafe),
         "minimum_clearance_m": float(min_clearance_m),
         "capture_point_error_m": float(np.sqrt(np.mean(np.square(pred_errors_m)))) if pred_errors_m else float("nan"),
@@ -303,6 +354,14 @@ def run_single_simulation(
         "config_hash": cfg.config_hash(),
         # --- Diagnostics beyond the Handbook schema ---------------------------
         "master_seed": int(master_seed),
+        "abort_triggered": bool(aborted),
+        "abort_reason": abort_reason_saved,
+        "abort_time_s": abort_time_s if aborted else None,
+        "retreat_status": retreat_status,
+        "retreat_complete": bool(retreat_complete and not unsafe),
+        "retreat_elapsed_s": max(0.0, elapsed_s - abort_time_s) if aborted else 0.0,
+        "approach_delta_v_mps": float(abort_delta_v_mps if aborted else delta_v_mps),
+        "retreat_delta_v_mps": float(delta_v_mps - abort_delta_v_mps) if aborted else 0.0,
         "propellant_kg": cfg.propellant_kg(delta_v_mps),
         "terminal_phase_entry_s": terminal_phase_entry_s,
         "vision_update_fraction": vision_updates / max(steps_run - 1, 1),

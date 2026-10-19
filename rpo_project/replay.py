@@ -8,6 +8,7 @@ master seed and the swept inputs. Typical use, after spotting a failure in
 """
 import argparse
 import math
+import json
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 import matplotlib
@@ -16,7 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from .analyse import INK, INK_2, STATUS_STYLE, _style_axes
-from .config import SCENARIOS, SimConfig
+from .config import MODEL_VERSION, SCENARIOS, SimConfig
 from .simulate import run_single_simulation
 
 
@@ -96,11 +97,32 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     p.add_argument("--packet-loss", type=float, default=0.20)
     p.add_argument("--beacon-rate", type=float, default=1.0)
     p.add_argument("--latency", type=float, default=0.10)
-    p.add_argument("--master-seed", type=int, default=0)
+    p.add_argument("--master-seed", type=int, default=None)
+    p.add_argument("--manifest", type=Path, help="use the campaign config and seed; requires matching model/source")
     p.add_argument("--out", type=str, default="results_replay")
     args = p.parse_args(argv)
+    cfg = SimConfig()
+    master_seed = args.master_seed if args.master_seed is not None else 0
+    if args.manifest is not None:
+        manifest = json.loads(args.manifest.read_text())
+        cfg = SimConfig(**manifest["config"])
+        if manifest["model_version"] != MODEL_VERSION or manifest["config_hash"] != cfg.config_hash():
+            p.error("manifest model/config differs; replay with the campaign's archived source and environment")
+        if manifest.get("source_files_sha256"):
+            import hashlib
+            root = Path(__file__).resolve().parent.parent
+            for name, digest in manifest["source_files_sha256"].items():
+                relative = Path(name)
+                if relative.is_absolute() or ".." in relative.parts:
+                    p.error("manifest source path must stay within the project")
+                path = root / relative
+                if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                    p.error("source differs from manifest; use the campaign's source archive")
+        if args.master_seed is not None and args.master_seed != manifest["master_seed"]:
+            p.error("--master-seed conflicts with the manifest")
+        master_seed = manifest["master_seed"]
     row = replay(args.scenario, args.seed, args.tumble, Path(args.out), args.vision_sigma, args.packet_loss,
-                 args.beacon_rate, args.latency, args.master_seed)
+                 args.beacon_rate, args.latency, master_seed, cfg)
     for key in ("status", "elapsed_s", "minimum_clearance_m", "delta_v_mps", "capture_point_error_m",
                 "final_rate_error_deg_s"):
         print(f"{key:>24}: {row[key]}")

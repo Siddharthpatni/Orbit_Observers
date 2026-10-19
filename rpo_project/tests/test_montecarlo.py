@@ -4,6 +4,8 @@ import io
 import json
 from pathlib import Path
 import tempfile
+import hashlib
+import zipfile
 import unittest
 from unittest.mock import patch
 
@@ -87,6 +89,23 @@ class CampaignTests(unittest.TestCase):
             run_campaign(1, out, chunk_id=1, num_chunks=2, studies=["main"], master_seed=5)
             with self.assertRaisesRegex(ValueError, "different campaigns"):
                 merge_chunks(out, analyse=False)
+
+    def test_source_snapshot_and_mismatched_source_merge(self):
+        with tempfile.TemporaryDirectory() as tmp, quiet(), \
+                patch("rpo_project.montecarlo.run_single_simulation", side_effect=fake_simulation):
+            out = Path(tmp)
+            for chunk in range(2):
+                run_campaign(1, out, chunk_id=chunk, num_chunks=2, studies=["main"])
+            path = out / "chunks" / "manifest_chunk_001.json"
+            manifest = json.loads(path.read_text())
+            with zipfile.ZipFile(out / manifest["source_archive"]) as archive:
+                for name, digest in manifest["source_files_sha256"].items():
+                    self.assertEqual(hashlib.sha256(archive.read(name)).hexdigest(), digest)
+            manifest["source_sha256"] = "different-source"
+            path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "source_sha256"):
+                merge_chunks(out, analyse=False)
+            self.assertFalse((out / "runs_main.csv").exists())
 
     def test_parallel_equals_serial_with_real_simulations(self):
         with tempfile.TemporaryDirectory() as tmp, quiet(), \

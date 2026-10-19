@@ -11,6 +11,8 @@ def check_estimator_abort_gates(
     elapsed_s: float,
     delta_v_used_mps: float,
 ) -> Tuple[bool, str]:
+    if estimator.position_std_m > cfg.max_allowed_position_std_m:
+        return True, "ABORT_POSITION_COVARIANCE"
     omega_hat = abs(float(estimator.att_hat[1]))
     ang_std = estimator.angle_std_rad
     if elapsed_s >= cfg.rate_gate_start_s and omega_hat > cfg.max_safe_target_omega_rad_s:

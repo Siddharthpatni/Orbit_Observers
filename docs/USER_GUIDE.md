@@ -133,3 +133,39 @@ Additional diagnostics follow: `master_seed`, `propellant_kg`, `terminal_phase_e
 | `missing chunks [...]` during merge | Rerun those array indices, then merge again. |
 | `chunk N disagrees on 'config_hash'` | Chunks were produced with different code/config; rerun them all from one version. |
 | Matplotlib font-cache warnings on a cluster | `export MPLCONFIGDIR=$TMPDIR/mpl` before running. |
+
+## 9. v4.1 retreat and reproducibility
+
+The approach can last 120 seconds, followed by up to 120 seconds of active retreat after an abort. Read `retreat_status` before interpreting an abort as a successful recovery:
+
+| Status | Meaning |
+|:--|:--|
+| `NOT_REQUIRED` | No abort was triggered |
+| `COMPLETE` | Estimated standoff arrival was independently confirmed against truth |
+| `ESTIMATE_MISMATCH` | Navigation declared arrival but the true state missed the limits |
+| `RESERVE_EXHAUSTED` | The 1.50 m/s retreat reserve ran out; the simulation continued coasting to the time limit |
+| `TIMEOUT` | The retreat time limit expired before confirmed arrival |
+| `UNSAFE` | A sampled keep-out violation occurred during retreat |
+
+`abort_reason`, `abort_time_s`, `abort_triggered`, `retreat_complete`, `retreat_elapsed_s`, `approach_delta_v_mps` and `retreat_delta_v_mps` distinguish the decision from its consequences. Total delta-v includes retreat. Unsafe outcomes override the abort outcome flag. Means labeled successful-approach fuel are undefined when no runs succeed.
+
+New campaigns archive the package's Python source and requirements in `source.zip` (or `source_chunk_NNN.zip`) and record file hashes and a combined source hash in the manifest. Keep these files with the raw CSVs. HPC merge rejects chunks with different source hashes or inconsistent identifiers. Do not edit source while a campaign is running.
+
+Replay with the original grid inputs and manifest:
+
+```bash
+python -m rpo_project.replay --scenario C1_fiducials --seed 0 --tumble 5 \
+    --vision-sigma 0.05 --packet-loss 0.2 --beacon-rate 1 --latency 0.1 \
+    --manifest results/v4_1_validation/manifest.json --out results/replay_v4_1
+```
+
+The manifest supplies the configuration and master seed. Replay refuses a different model, config or archived source hash. Use a separate copy of the archived source plus the recorded environment to reproduce older runs. v4.0 results cannot be reproduced with v4.1 dynamics simply by copying their input arguments.
+
+Run the standalone IOS engineering examples:
+
+```bash
+python -m rpo_project.ios
+python -m unittest rpo_project.tests.test_ios rpo_project.tests.test_retreat
+```
+
+The printed power, battery, link and detumbling values are model estimates. They do not constitute hardware tests or coupled RPO/IOS validation.

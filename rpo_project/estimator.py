@@ -28,18 +28,34 @@ class RPOEstimator:
         ang_var = max(vision_angle_sigma_rad ** 2, cfg.est_min_angle_sigma_rad ** 2)
         rate_var = cfg.est_init_rate_sigma_rad_s ** 2
         self.P_att = np.diag([ang_var, rate_var])
+        self._cached_dt = cfg.dt_s
+        self._cached_phi = cw_state_transition_matrix(cfg.dt_s)
+        q_pos = (cfg.est_pos_process_noise_mps * cfg.dt_s) ** 2
+        q_vel = (cfg.est_vel_process_noise_mps15 * math.sqrt(cfg.dt_s)) ** 2
+        self._cached_q_trans = np.diag([q_pos, q_pos, q_pos, q_vel, q_vel, q_vel])
+        self._cached_f_att = np.array([[1.0, cfg.dt_s], [0.0, 1.0]], dtype=float)
+        q_omega = cfg.est_rate_process_noise_rad_s15 ** 2
+        self._cached_q_att = q_omega * np.array(
+            [[(cfg.dt_s ** 3) / 3.0, (cfg.dt_s ** 2) / 2.0], [(cfg.dt_s ** 2) / 2.0, cfg.dt_s]], dtype=float
+        )
 
     def predict(self, dt: float, u_cmd_lvlh: np.ndarray) -> None:
         self.s_hat = propagate_cw_rk4(self.s_hat, u_cmd_lvlh, dt)
-        phi = cw_state_transition_matrix(dt)
-        q_pos = (self.cfg.est_pos_process_noise_mps * dt) ** 2
-        q_vel = (self.cfg.est_vel_process_noise_mps15 * math.sqrt(dt)) ** 2
-        self.P_trans = phi @ self.P_trans @ phi.T + np.diag([q_pos, q_pos, q_pos, q_vel, q_vel, q_vel])
-
-        F_att = np.array([[1.0, dt], [0.0, 1.0]], dtype=float)
+        if dt == self._cached_dt:
+            phi = self._cached_phi
+            q_trans = self._cached_q_trans
+            F_att = self._cached_f_att
+            Q_att = self._cached_q_att
+        else:
+            phi = cw_state_transition_matrix(dt)
+            q_pos = (self.cfg.est_pos_process_noise_mps * dt) ** 2
+            q_vel = (self.cfg.est_vel_process_noise_mps15 * math.sqrt(dt)) ** 2
+            q_trans = np.diag([q_pos, q_pos, q_pos, q_vel, q_vel, q_vel])
+            F_att = np.array([[1.0, dt], [0.0, 1.0]], dtype=float)
+            q_omega = self.cfg.est_rate_process_noise_rad_s15 ** 2
+            Q_att = q_omega * np.array([[(dt ** 3) / 3.0, (dt ** 2) / 2.0], [(dt ** 2) / 2.0, dt]], dtype=float)
+        self.P_trans = phi @ self.P_trans @ phi.T + q_trans
         self.att_hat = np.array([wrap_pi(self.att_hat[0] + self.att_hat[1] * dt), self.att_hat[1]], dtype=float)
-        q_omega = self.cfg.est_rate_process_noise_rad_s15 ** 2
-        Q_att = q_omega * np.array([[(dt ** 3) / 3.0, (dt ** 2) / 2.0], [(dt ** 2) / 2.0, dt]], dtype=float)
         self.P_att = F_att @ self.P_att @ F_att.T + Q_att
 
     def update_vision(self, meas_chaser_pos_lvlh: np.ndarray, meas_theta_rad: float, pos_sigma_m: float, angle_sigma_rad: float) -> None:
@@ -92,3 +108,9 @@ class RPOEstimator:
     @property
     def angle_std_rad(self) -> float:
         return math.sqrt(max(0.0, float(self.P_att[0, 0])))
+
+    @property
+    def position_std_m(self) -> float:
+        """Largest principal-axis position uncertainty, including cross-covariance."""
+        covariance = self.P_trans[:3, :3]
+        return math.sqrt(max(0.0, float(np.linalg.eigvalsh((covariance + covariance.T) / 2)[-1])))

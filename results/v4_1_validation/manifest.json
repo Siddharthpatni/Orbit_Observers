@@ -1,0 +1,309 @@
+{
+  "model_version": "Phase2-RPO-MC-v4.1",
+  "config_hash": "ba13f0e405",
+  "master_seed": 20261019,
+  "runs_per_cell": 100,
+  "sweep_runs_per_cell": 30,
+  "studies": {
+    "main": {
+      "title": "Client preparation tier vs. tumble rate",
+      "scenarios": [
+        "C0_unprepared",
+        "C1_fiducials",
+        "C2_id_only",
+        "C2_beacon",
+        "C3_ios_mode"
+      ],
+      "grid": {
+        "tumble_deg_s": [
+          0.0,
+          0.25,
+          0.5,
+          1.0,
+          2.0,
+          3.0,
+          5.0
+        ]
+      },
+      "fixed": {
+        "tumble_deg_s": "swept",
+        "vision_sigma_m": 0.05,
+        "beacon_packet_loss": 0.2,
+        "beacon_rate_hz": 1.0,
+        "latency_s": 0.1
+      },
+      "runs_per_cell": 100,
+      "seed_range": [
+        0,
+        99
+      ],
+      "n_cells": 7,
+      "n_simulations": 3500
+    },
+    "ablation": {
+      "title": "Service Beacon ablation: packet loss x update rate (3 deg/s tumble)",
+      "scenarios": [
+        "C2_id_only",
+        "C2_beacon"
+      ],
+      "grid": {
+        "beacon_packet_loss": [
+          0.0,
+          0.1,
+          0.25,
+          0.5,
+          0.75
+        ],
+        "beacon_rate_hz": [
+          0.5,
+          1.0,
+          2.0
+        ]
+      },
+      "fixed": {
+        "tumble_deg_s": 3.0,
+        "vision_sigma_m": 0.05,
+        "beacon_packet_loss": "swept",
+        "beacon_rate_hz": "swept",
+        "latency_s": 0.1
+      },
+      "runs_per_cell": 30,
+      "seed_range": [
+        1000000,
+        1000029
+      ],
+      "n_cells": 15,
+      "n_simulations": 900
+    },
+    "envelope": {
+      "title": "Servicing envelope: tumble rate x optical noise",
+      "scenarios": [
+        "C1_fiducials",
+        "C2_beacon"
+      ],
+      "grid": {
+        "tumble_deg_s": [
+          0.0,
+          0.5,
+          1.0,
+          2.0,
+          3.0,
+          5.0
+        ],
+        "vision_sigma_m": [
+          0.02,
+          0.05,
+          0.1,
+          0.25
+        ]
+      },
+      "fixed": {
+        "tumble_deg_s": "swept",
+        "vision_sigma_m": "swept",
+        "beacon_packet_loss": 0.2,
+        "beacon_rate_hz": 1.0,
+        "latency_s": 0.1
+      },
+      "runs_per_cell": 30,
+      "seed_range": [
+        2000000,
+        2000029
+      ],
+      "n_cells": 24,
+      "n_simulations": 1440
+    },
+    "latency": {
+      "title": "Service Beacon latency sensitivity (3 deg/s tumble)",
+      "scenarios": [
+        "C2_id_only",
+        "C2_beacon"
+      ],
+      "grid": {
+        "latency_s": [
+          0.0,
+          0.1,
+          0.5,
+          1.0,
+          2.0
+        ]
+      },
+      "fixed": {
+        "tumble_deg_s": 3.0,
+        "vision_sigma_m": 0.05,
+        "beacon_packet_loss": 0.2,
+        "beacon_rate_hz": 1.0,
+        "latency_s": "swept"
+      },
+      "runs_per_cell": 30,
+      "seed_range": [
+        3000000,
+        3000029
+      ],
+      "n_cells": 5,
+      "n_simulations": 300
+    }
+  },
+  "chunk": null,
+  "workers": 4,
+  "command": "/Users/siddharthpatni/Orbit_Observers_RPO_Starter_Package/rpo_project/montecarlo.py --mode pilot --runs 100 --sweep-runs 30 --master-seed 20261019 --workers 4 --out results/v4_1_validation",
+  "started_utc": "2026-10-19T05:37:11+00:00",
+  "git_commit": "6f4622a0001866524d5ebb40f9d705ce889dd3b8",
+  "git_dirty": true,
+  "python": "3.14.3",
+  "numpy": "2.5.4",
+  "pandas": "3.0.6",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "config": {
+    "dt_s": 0.25,
+    "max_duration_s": 120.0,
+    "prediction_horizon_s": 2.0,
+    "prediction_metric_start_s": 1.0,
+    "target_mass_kg": 3500.0,
+    "inertia_diag_kgm2": [
+      2400.0,
+      2800.0,
+      3100.0
+    ],
+    "capture_offset_body_m": [
+      1.5,
+      0.0,
+      0.0
+    ],
+    "keepout_radius_m": 1.35,
+    "hold_distance_m": 4.0,
+    "chaser_start_distance_m": 12.0,
+    "a_max_mps2": 0.04,
+    "servicer_mass_kg": 500.0,
+    "servicer_isp_s": 220.0,
+    "chaser_pos_disp_sigma_m": 0.5,
+    "chaser_vel_disp_sigma_mps": 0.015,
+    "thruster_noise_sigma_frac": 0.02,
+    "thruster_scale_sigma_frac": 0.02,
+    "thruster_misalign_sigma_rad": 0.008726646259971648,
+    "tumble_axis_tilt_sigma_rad": 0.03490658503988659,
+    "inertia_sigma_frac": 0.05,
+    "gyro_noise_rad_s": 0.0013962634015954637,
+    "fov_occlusion_cos_limit": -0.35,
+    "est_min_pos_sigma_m": 0.05,
+    "est_init_vel_sigma_mps": 0.03,
+    "est_min_angle_sigma_rad": 0.017453292519943295,
+    "est_init_rate_sigma_rad_s": 0.05235987755982989,
+    "est_pos_process_noise_mps": 0.005,
+    "est_vel_process_noise_mps15": 0.003,
+    "est_rate_process_noise_rad_s15": 0.0002617993877991494,
+    "controller": "braking_pd",
+    "kp_pos": 0.085,
+    "kd_vel": 0.42,
+    "max_closing_speed_mps": 0.3,
+    "braking_accel_fraction": 0.5,
+    "terminal_entry_min_time_s": 8.0,
+    "terminal_entry_pos_tol_m": 1.25,
+    "terminal_entry_max_angle_std_rad": 0.13962634015954636,
+    "corridor_check_radius_m": 2.8,
+    "corridor_half_angle_rad": 0.9599310885968813,
+    "corridor_max_angle_std_rad": 0.17453292519943295,
+    "flyaround_cos_limit": 0.15,
+    "flyaround_extra_radius_m": 1.5,
+    "flyaround_tangent_offset_m": 2.5,
+    "barrier_radius_m": 1.48,
+    "barrier_gain_mps2": 0.06,
+    "barrier_scale_m": 0.15,
+    "terminal_pos_std_thresh_m": 0.02,
+    "terminal_standoff_gain": 1.65,
+    "terminal_standoff_max_m": 0.065,
+    "barrier_pos_std_gain": 2.5,
+    "corot_rate_conf_sigma_rad_s": 0.0008726646259971648,
+    "corot_far_gain": 0.55,
+    "corot_far_span_m": 5.0,
+    "max_safe_target_omega_rad_s": 0.05672320068981571,
+    "rate_gate_start_s": 10.0,
+    "max_allowed_angle_std_rad": 0.3141592653589793,
+    "covariance_gate_start_s": 12.0,
+    "max_delta_v_mps": 2.5,
+    "max_allowed_position_std_m": 0.3,
+    "retreat_duration_s": 120.0,
+    "retreat_delta_v_reserve_mps": 1.5,
+    "retreat_position_tol_m": 0.25,
+    "retreat_speed_tol_mps": 0.055,
+    "terminal_pos_tol_m": 0.2,
+    "terminal_vel_tol_mps": 0.055,
+    "terminal_align_tol_rad": 0.2617993877991494,
+    "terminal_dwell_s": 2.0
+  },
+  "scenarios": {
+    "C0_unprepared": {
+      "name": "C0_unprepared",
+      "vision_angle_sigma_rad": 0.20943951023931956,
+      "vision_pos_scale": 2.5,
+      "vision_dropout_prob": 0.3,
+      "beacon_enabled": false,
+      "beacon_has_rate": false,
+      "omega_factor": 1.0
+    },
+    "C1_fiducials": {
+      "name": "C1_fiducials",
+      "vision_angle_sigma_rad": 0.05235987755982989,
+      "vision_pos_scale": 1.0,
+      "vision_dropout_prob": 0.08,
+      "beacon_enabled": false,
+      "beacon_has_rate": false,
+      "omega_factor": 1.0
+    },
+    "C2_id_only": {
+      "name": "C2_id_only",
+      "vision_angle_sigma_rad": 0.05235987755982989,
+      "vision_pos_scale": 1.0,
+      "vision_dropout_prob": 0.08,
+      "beacon_enabled": true,
+      "beacon_has_rate": false,
+      "omega_factor": 1.0
+    },
+    "C2_beacon": {
+      "name": "C2_beacon",
+      "vision_angle_sigma_rad": 0.05235987755982989,
+      "vision_pos_scale": 1.0,
+      "vision_dropout_prob": 0.08,
+      "beacon_enabled": true,
+      "beacon_has_rate": true,
+      "omega_factor": 1.0
+    },
+    "C3_ios_mode": {
+      "name": "C3_ios_mode",
+      "vision_angle_sigma_rad": 0.05235987755982989,
+      "vision_pos_scale": 1.0,
+      "vision_dropout_prob": 0.08,
+      "beacon_enabled": true,
+      "beacon_has_rate": true,
+      "omega_factor": 0.05
+    }
+  },
+  "source_files_sha256": {
+    "rpo_project/__init__.py": "19aa33ad2d02cbbc8b7f3efca5ab95b5917e0b11a2b0e939895db00fb5a156b2",
+    "rpo_project/analyse.py": "64edd8ef874b6f5c42d2ccfa4c35013a5f2d8c45f8acb51632a25c82a28ad8d6",
+    "rpo_project/attitude.py": "6e59cae58b17c2b7ae1114bf86969b3c726acf4246b9e856d584e674ffeaa937",
+    "rpo_project/beacon.py": "336058e6652534274d35dc58c5de845b4045f2cb5ac45399ee03faeb54224165",
+    "rpo_project/config/__init__.py": "116aaad594d2436d7fd82381e4db7fcbe361696e6b404a00db1f9ce91b9678ea",
+    "rpo_project/dynamics.py": "182f429aa16587dc3b42a2cc1d09cb0751b77a470949ad8d96590085c4140e74",
+    "rpo_project/estimator.py": "cfa30e5d131cf9c0ea99bb9a948215e4cce027877fb745bf751edc40b84250da",
+    "rpo_project/guidance.py": "b8f8b01128ef1a1ff3cfa40c90930500ff854b7f53b2b3703d3266a77456c39b",
+    "rpo_project/ios.py": "c83b61b253a2f97f509a6cb77482489ebc172d07cc8a2f36f6ce5b03b824cc77",
+    "rpo_project/montecarlo.py": "05d2829b44672ac5be87a8103f0f4943d5be2082411c42be3475a5703ca1d183",
+    "rpo_project/replay.py": "cbf585c74338c2edb6fedfa84a5358b1cbf6876871325a2b3d26c1297d5af9e6",
+    "rpo_project/safety.py": "725b003e0c00ba12461ea82ab565f1373e0ccc777e013ba88e6540dba2b8cb58",
+    "rpo_project/sensors.py": "9c33452cd7de415625caa81e7f26b2e810e0590f063225e2ece4c5fd3b3a1385",
+    "rpo_project/simulate.py": "032c3dd21fa6dfd7e4149637ba258964760e4843db16735961f17000173f7662",
+    "rpo_project/stats.py": "5cc9c5d40ebfdd30e7862a6534d97ca2726fc0fab72be4183e8cdf9b54bb79f9",
+    "rpo_project/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rpo_project/tests/test_analysis.py": "cfeeb24eb55e29679d4654c74f175686acaaad4a8772a07d2e67971cddb713ea",
+    "rpo_project/tests/test_ios.py": "a4818baff3373cea5113595fc68a4acadc5308a0a069b679dcb584b19c6c5256",
+    "rpo_project/tests/test_montecarlo.py": "0bc8c01f192ab1dd62b2f9822fd9dfb4a525fc33b9bf0ba8abadcbcfec051c27",
+    "rpo_project/tests/test_retreat.py": "0ddd3cd4e5bb6cab6482b0960c1ae15e1218f4e831d20e1e70ff59796f3df2c4",
+    "rpo_project/tests/test_stats.py": "477635d9d060ba872f804881303b32d0aaa499eaca30d0f99097877031d8be3a",
+    "rpo_project/tests/test_vv.py": "43d25cc65c8336e214c9f814b242da7df85c5c9d62f98ae861ade4eacfb178f2",
+    "requirements.txt": "cc409613fef741ab8f83ec88b7bc8eae3d9fb374b8a6c8e7464a66b17cf6f107"
+  },
+  "source_sha256": "315711bdefff01f2a203b224dfbc48f85e15878aac9e71deb072bdb98139aa66",
+  "source_archive": "source.zip",
+  "wall_time_s": 87.2,
+  "n_simulations_run": 6140
+}

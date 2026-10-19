@@ -7,11 +7,17 @@ This package simulates a robotic servicer approaching a possibly tumbling client
 
 ---
 
+## Current development version: v4.1
+
+v4.1 adds propagated abort retreat, a position-covariance gate, tested IOS command transitions, and source snapshots for campaign reproducibility. See [implementation status](docs/IMPLEMENTATION_STATUS.md) and the [new-seed validation campaign](results/v4_1_validation/report.md). The 35,100-run v4.0 results below are historical evidence and are not relabeled as v4.1 results.
+
 ## Start here
 
 | You are… | Read |
 |:--|:--|
 | New to the project, or non-technical | [docs/GUIDE_FOR_EVERYONE.md](docs/GUIDE_FOR_EVERYONE.md) — the problem, the tiers, what Monte Carlo means, how to read the results |
+| Assessing Phase 2 completion | [Project assessment](docs/PROJECT_ASSESSMENT.md) · [Proposal draft and acceptance gates](docs/PHASE2_PROPOSAL.md) |
+| Preparing a presentation | [Corrected pitch script](docs/PLAIN_LANGUAGE_PITCH_DECK.md) — existing PDF/PPTX exports still need synchronization |
 | Looking for the latest results | [results/v4_0/report.md](results/v4_0/report.md) — auto-generated campaign report with figures |
 | Wanting to run the code | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — install, commands, output files, troubleshooting |
 | Running on the MeluXina supercomputer | [hpc/README.md](hpc/README.md) — SSH, storage, Python setup, Slurm jobs, monitoring |
@@ -39,17 +45,18 @@ Publication-size campaign and replaying single runs: see the [User Guide](docs/U
 
 ![Terminal-window pass rate vs tumble rate](results/v4_0/plot1_terminal_pass_vs_tumble.png)
 
-| # | Finding | Evidence (95% intervals; paired McNemar tests) |
-|:-:|:--|:--|
-| 1 | Below ~1°/s tumble, **every tier** reaches the terminal window. | ≥ 99.6% for all tiers at 0–1°/s |
-| 2 | **Passive fiducials (C1) matter from 2°/s.** | 2°/s: C0 95% [92–96] → C1 100% (+5 pp, p ≈ 10⁻⁸). 3°/s: C0 35% [31–39] → C1 83% [79–86] (+48 pp) |
-| 3 | **A beacon carrying the spin rate (C2) closes the gap at 3°/s; an ID-only beacon does nothing.** | 3°/s: C2 100% [99–100] vs C1 83% (+17 pp, p ≈ 10⁻²⁶); C2-ID = C1 on every seed |
-| 4 | The beacon's value is in the **abort decision**, not in prediction accuracy: rate packets stop the early rate-estimate overshoot that triggers false "tumbling too fast" aborts. | 3°/s: P(abort) 17% (C1) → 0% (C2); RMS capture-point error 0.073 vs 0.074 m |
-| 5 | **Beacon requirements are modest** under a steady tumble. | ≥ 1 Hz: 100% up to 75% packet loss; 0.5 Hz: 96% at 75% loss; latency up to 2 s: no effect |
-| 6 | **At 5°/s every non-cooperative tier aborts safely** (3.2°/s gate, by design); only C3, where the client slows itself, proceeds. | C0–C2: 0% pass, 100% abort, 0 unsafe; C3: 100% |
-| 7 | **Rare, shallow keep-out violations appear when optical position noise is large** — invisible in earlier 30-seed campaigns. | 23 of 35 100 runs, all ≤ 1 cm deep, all with noise ≥ 12.5 cm (C0, or the 25 cm envelope row); none at ≤ 10 cm |
+| Finding | Recorded evidence and limit |
+|:--|:--|
+| No observed keep-out violations | 0 / 35,100 runs; worst sampled clearance +2.9 mm. Seeds are reused across cells and tiers, so no pooled binomial risk bound is claimed. |
+| Markers provide the largest gain at 3°/s | C0: 208/500 (41.6%, Wilson 95% interval 37.36–45.97%); C1: 459/500 (91.8%, 89.06–93.90%). |
+| Rate telemetry adds value | C2: 500/500 (100% observed, 99.24–100%); C2-ID has the same pass outcomes as C1. |
+| Better prediction and lower successful-approach delta-v | C1 → C2 at 3°/s: RMS prediction error 0.0781 → 0.0447 m; mean delta-v 1.524 → 1.482 m/s. |
+| Link degradation is explored | At 1 Hz: 200/200 C2 passes at each tested loss level through 50%, 199/200 at 75%. Separate latency cells through 2 s give 200/200; combined worst cases are untested. |
+| Cooperation changes the feasible case | At the tested 5°/s, C0–C2 abort and C3 passes after an assumed 95% reduction in initial spin. No 10°/s cell exists in this campaign. |
 
-**What this suggests (to be confirmed):** fiducials are the single most valuable provision; a rate-carrying beacon at ≥ 1 Hz extends the safe envelope to ~3°/s; terminal approach should require optical position accuracy of ~10 cm or better, or add an abort gate on position uncertainty (not yet modelled — the capture fixture sits only 15 cm outside the keep-out sphere). The latency result holds only for a steady tumble. All numbers are conditional on the model's illustrative assumptions.
+**Interpretation:** these results support further validation of passive markers and rate telemetry for the tested approach scenarios. They establish neither guaranteed capture nor a fleet-wide servicing probability. Zero violations in one 500-seed cell gives a one-sided 95% model-risk upper bound of about 0.60%; a 200-seed cell gives about 1.49%. These are pointwise bounds.
+
+**Engineering estimates:** assumed beacon loads yield 28.5 mW average and 20.52 Wh over 30 days. Battery mass and link performance need hardware validation. The propellant illustration assumes independent retries and a fixed abort cost; it excludes capture, servicing and transfer costs and is not a forecast of completed rescues.
 
 ## Client preparation tiers
 
@@ -65,7 +72,7 @@ C0, C1 and C2 are always compared on identical random conditions (paired seeds),
 
 ## What a proper Monte Carlo means here
 
-* **Everything uncertain is randomised in every run** — servicer start state, client orientation, spin axis and inertia, camera noise and dropouts, beacon losses, thruster bias, misalignment and noise.
+* **Selected uncertainties are randomised in every run** — servicer start state, client orientation, spin axis and inertia, camera noise and dropouts, beacon losses, thruster bias, misalignment and noise.
 * **Paired, reproducible seeds** from independent random streams: any row of any CSV can be re-flown exactly (`python -m rpo_project.replay`).
 * **Four studies:** tier vs tumble rate, beacon loss × rate ablation, tumble × camera-noise envelope, beacon latency.
 * **Honest uncertainty:** Wilson 95% intervals on every rate, exact McNemar tests for tier-vs-tier differences, convergence plot, zero-event upper bounds.
@@ -87,10 +94,11 @@ rpo_project/
   montecarlo.py   studies, paired seeds, parallel/HPC execution, merge, CLI
   stats.py        Wilson, McNemar, paired differences, sample-size planning
   analyse.py      summary tables, figures, report.md
-  replay.py       re-fly and plot any single run
+  replay.py       re-fly and plot a run with manifest/source checks
+  ios.py          standalone IOS transitions, detumbling and beacon engineering estimates
   tests/          V&V suite + unit tests
 hpc/              MeluXina setup guide, environment and Slurm job scripts
-results/          v4_0 (current), optimized_v3_0, baseline_v2_1, smoke_v2_1 (historical)
+results/          v4_1_validation (development validation), v4_0 (historical), optimized_v3_0, baseline_v2_1, smoke_v2_1 (historical)
 docs/             guides listed above + reference material (Handbook PDF, slides)
 examples/stage1/  original Stage-I information-value pilot
 archive/          earlier MATLAB / Python prototypes
@@ -109,7 +117,7 @@ Covers the 10 Handbook §13 verification checks, the statistics against hand-com
 * Guidance and abort logic see only estimates, never the true state.
 * Abort, unsafe and terminal-window outcomes are reported separately; an abort is the safety system working.
 * C3 changes the client's motion and is never presented as evidence that information alone helped.
-* Zero keep-out violations in *N* runs bounds the rate only within the model (≈ 3/N), not flight safety.
+* Zero keep-out violations in *N* independent seeds within one tier/grid cell bounds its modeled rate (≈ 3/N). Reused seeds prevent applying that bound to the pooled campaign count; no flight safety guarantee follows.
 * All numbers are illustrative study assumptions, not ClearSpace hardware data. See [MODEL_REFERENCE.md §11](docs/MODEL_REFERENCE.md#11-known-limitations).
 
 Developed for the Orbit Observers / ClearSpace Phase 2 study. Questions and contributions: open an issue or pull request on [GitHub](https://github.com/Siddharthpatni/Orbit_Observers).

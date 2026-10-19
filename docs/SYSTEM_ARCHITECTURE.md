@@ -1,7 +1,7 @@
 # System Architecture & Design Guide: In-Orbit Servicing & RPO
 
 **Audience:** Engineers, Researchers, and Students with **Zero Prior Aerospace or Control System Background**  
-**Document ID:** SYS-DES-2026-V4 (model `Phase2-RPO-MC-v4.0`)  
+**Document ID:** SYS-DES-2026-V4 (model `Phase2-RPO-MC-v4.1`)
 **Project:** Orbit Observers / ClearSpace Phase 2 — Autonomous Rendezvous & Proximity Operations (RPO)  
 
 ---
@@ -126,14 +126,15 @@ stateDiagram-v2
         [*] --> AccumulateDwell: Hold steady for 2.0 continuous seconds
     }
     
-    Mode4_CaptureDwell --> SUCCESS: 2.0s Dwell Complete! Latch capture mechanism
+    Mode4_CaptureDwell --> SUCCESS: 2.0s Dwell Complete (contact not modeled)
     
     Mode1_Ingress --> Mode5_Abort: Fuel out OR High Tumble OR Covariance spike
     Mode2_HoldPoint --> Mode5_Abort: Any safety gate violation
     Mode3_TerminalApproach --> Mode5_Abort: Corridor lost OR Keepout breached
     Mode4_CaptureDwell --> Mode5_Abort: Any safety gate violation
     
-    Mode5_Abort --> [*]: Stop the approach (retreat not simulated)
+    Mode5_Abort --> Retreat: Record decision and use retreat reserve
+    Retreat --> [*]: Complete, timeout, reserve exhausted, estimate mismatch or unsafe
     SUCCESS --> [*]: Mission Accomplished
 ```
 
@@ -145,7 +146,7 @@ stateDiagram-v2
 | **Mode 2: Standoff Hold** | $4.0\text{ m}$ sphere | Station-keep at a safe standoff distance; allow Kalman filter to converge on attitude and spin rate. | Position error $< 1.25\text{ m}$, speed error $\le 0.055\text{ m/s}$, attitude *uncertainty* (1-σ) $< 8^\circ$, elapsed time $\ge 8\text{ s}$. |
 | **Mode 3: Terminal Approach** | $4.0\text{ m} \to 1.5\text{ m}$ | Inward descent toward the moving capture fixture along a narrow alignment cone ($< 55^\circ$). | Reach capture tolerance: position $< 0.20\text{ m}$, speed $< 0.055\text{ m/s}$, alignment $< 15^\circ$. |
 | **Mode 4: Capture Dwell** | $1.5\text{ m} \pm 0.2\text{ m}$ | Maintain formation with the moving capture port continuously for $2.0\text{ seconds}$ without slipping. | Dwell counter reaches $2.0\text{ s}$ ($\ge 8$ consecutive time steps). |
-| **Mode 5: Abort** | Anywhere | Stop the approach before it becomes dangerous. The simulation ends at the abort decision; the retreat manoeuvre is not simulated. | Estimated spin $> 3.2^\circ/\text{s}$ (after 10 s), attitude uncertainty $> 18^\circ$ (after 12 s), fuel $\ge 2.5\text{ m/s}$, or approach corridor lost inside 2.8 m. |
+| **Mode 5: Abort** | Anywhere | Stop the approach before it becomes dangerous. Propagate an active retreat toward the 12 m departure-direction reference with a separate 1.50 m/s reserve and 120 s time limit. | Position uncertainty >0.30 m at any time, estimated spin $> 3.25^\circ/\text{s}$ (after 10 s), attitude uncertainty $> 18^\circ$ (after 12 s), fuel $\ge 2.5\text{ m/s}$, or approach corridor lost inside 2.8 m. |
 
 ---
 
@@ -256,3 +257,7 @@ dropouts. Hardest.     camera noise.         spin rate. Robust.    detumbling. E
 - **LVLH (Local-Vertical Local-Horizontal):** The standard rotating coordinate frame used for rendezvous. $X$ points radially outward from Earth, $Y$ points in the direction of orbital travel, and $Z$ points perpendicular to the orbit plane.
 - **Keep-Out Sphere (KOS):** A spherical safety bubble around the target satellite ($1.35\text{ m}$ radius) that the chaser must never breach.
 - **Capture Dwell Window:** The requirement to remain within the terminal box ($< 0.20\text{ m}$ position error, $< 0.055\text{ m/s}$ speed error, $< 15^\circ$ angle error) continuously for at least $2.0\text{ seconds}$ before mechanical contact is attempted.
+
+## Standalone IOS system model
+
+`ios.py` provides tested command transitions, heartbeat timeouts, explicit acknowledgments and docked authority retention until isolation and separation are confirmed. It also exposes detumbling and beacon engineering estimates through `python -m rpo_project.ios`. This is separate from the RPO loop: C3 still starts with a reduced rate, and no contact/latch dynamics or cryptographic protocol is implemented. See [implementation status](IMPLEMENTATION_STATUS.md).

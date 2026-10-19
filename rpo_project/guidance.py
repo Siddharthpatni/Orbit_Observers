@@ -23,11 +23,18 @@ def compute_guidance_command(
     v_hat = estimator.s_hat[3:]
     r_cap_hat, v_cap_hat, n_cap_hat = estimator.predict_capture_point(0.0, rho_cap_body)
     ang_std = estimator.angle_std_rad
+    pos_std = estimator.position_std_m
+    rate_std = math.sqrt(max(0.0, float(estimator.P_att[1, 1])))
     est_dist_to_origin = float(np.linalg.norm(r_hat))
 
     omega_vec_hat = np.array([0.0, 0.0, float(estimator.att_hat[1])], dtype=float)
     r_hold_ref = n_cap_hat * cfg.hold_distance_m
-    v_hold_ref = np.cross(omega_vec_hat, r_hold_ref)
+    # When tumble rate is known with high confidence (beacon), ramp tangential co-rotation
+    # smoothly as the servicer approaches the hold sphere rather than over-chasing at 12 m.
+    rate_conf = math.exp(-((rate_std / cfg.corot_rate_conf_sigma_rad_s) ** 2))
+    far_factor = min(1.0, max(0.0, (est_dist_to_origin - cfg.hold_distance_m) / cfg.corot_far_span_m))
+    corot_scale = 1.0 - cfg.corot_far_gain * rate_conf * far_factor
+    v_hold_ref = np.cross(omega_vec_hat, r_hold_ref) * corot_scale
 
     hold_err = float(np.linalg.norm(r_hat - r_hold_ref))
     hold_speed = float(np.linalg.norm(v_hat - v_hold_ref))
@@ -38,6 +45,7 @@ def compute_guidance_command(
             and ang_std < cfg.terminal_entry_max_angle_std_rad):
         in_terminal_phase = True
 
+    excess_pos_std = max(0.0, pos_std - cfg.terminal_pos_std_thresh_m)
     if not in_terminal_phase:
         r_ref, v_ref = r_hold_ref, v_hold_ref
     else:
@@ -45,7 +53,11 @@ def compute_guidance_command(
             cos_align = float(np.dot(r_hat / max(est_dist_to_origin, 1e-6), n_cap_hat))
             if cos_align < math.cos(cfg.corridor_half_angle_rad) or ang_std > cfg.corridor_max_angle_std_rad:
                 return np.zeros(3), in_terminal_phase, True, "ABORT_CORRIDOR_MISALIGNMENT"
-        r_ref, v_ref = r_cap_hat, v_cap_hat
+        # Covariance-aware radial standoff keeps degraded-vision approaches outside the
+        # keep-out sphere while staying well inside the 0.20 m terminal capture window.
+        standoff = min(cfg.terminal_standoff_max_m, cfg.terminal_standoff_gain * excess_pos_std)
+        r_ref = r_cap_hat + standoff * n_cap_hat
+        v_ref = np.cross(omega_vec_hat, r_ref)
 
     cos_side = float(np.dot(r_hat / max(est_dist_to_origin, 1e-6), r_ref / max(float(np.linalg.norm(r_ref)), 1e-6)))
     if cos_side < cfg.flyaround_cos_limit and est_dist_to_origin < cfg.hold_distance_m + cfg.flyaround_extra_radius_m:
@@ -72,12 +84,32 @@ def compute_guidance_command(
         a_ref = np.cross(omega_vec_hat, v_ref)
         a_cmd = cfg.kd_vel * (v_ref + closing_velocity - v_hat) + a_ref
         a_cmd -= cw_derivative(estimator.s_hat, np.zeros(3))[3:]
-    # Repulsive barrier just outside the keep-out sphere (acts on the estimate).
-    if est_dist_to_origin < cfg.barrier_radius_m:
+    # Repulsive barrier just outside the keep-out sphere (acts on the estimate, inflated by pos_std).
+    eff_barrier = cfg.barrier_radius_m + cfg.barrier_pos_std_gain * excess_pos_std
+    if est_dist_to_origin < eff_barrier:
         radial_unit = r_hat / max(est_dist_to_origin, 1e-6)
-        a_cmd = a_cmd + cfg.barrier_gain_mps2 * ((cfg.barrier_radius_m - est_dist_to_origin) / cfg.barrier_scale_m) * radial_unit
+        a_cmd = a_cmd + cfg.barrier_gain_mps2 * ((eff_barrier - est_dist_to_origin) / cfg.barrier_scale_m) * radial_unit
 
     a_norm = float(np.linalg.norm(a_cmd))
     if a_norm > cfg.a_max_mps2:
         a_cmd = a_cmd * (cfg.a_max_mps2 / a_norm)
     return a_cmd, in_terminal_phase, False, "NOMINAL"
+
+
+def compute_retreat_command(estimator: RPOEstimator, cfg: SimConfig, reference: np.ndarray) -> np.ndarray:
+    """Brake and return to a fixed departure-direction standoff, using estimates only.
+
+    ponytail: active point-mass retreat; passive safety and full vehicle geometry need separate validation.
+    """
+    r, v = estimator.s_hat[:3], estimator.s_hat[3:]
+    error = reference - r
+    distance = float(np.linalg.norm(error))
+    speed = min(cfg.max_closing_speed_mps, cfg.kp_pos / cfg.kd_vel * distance,
+                math.sqrt(2 * cfg.braking_accel_fraction * cfg.a_max_mps2 * distance))
+    command = cfg.kd_vel * (error * (speed / max(distance, 1e-12)) - v)
+    command -= cw_derivative(estimator.s_hat, np.zeros(3))[3:]
+    radius = float(np.linalg.norm(r))
+    barrier = cfg.barrier_radius_m + cfg.barrier_pos_std_gain * estimator.position_std_m
+    if radius < barrier:
+        command += cfg.barrier_gain_mps2 * (barrier - radius) / cfg.barrier_scale_m * r / max(radius, 1e-12)
+    return command * min(1.0, cfg.a_max_mps2 / max(float(np.linalg.norm(command)), 1e-12))

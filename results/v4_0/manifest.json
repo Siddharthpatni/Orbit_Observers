@@ -1,6 +1,6 @@
 {
   "model_version": "Phase2-RPO-MC-v4.0",
-  "config_hash": "0a525eb98b",
+  "config_hash": "8daad2cd67",
   "master_seed": 0,
   "runs_per_cell": 500,
   "sweep_runs_per_cell": 200,
@@ -146,8 +146,8 @@
   "chunk": null,
   "workers": 10,
   "command": "/Users/siddharthpatni/Orbit_Observers_RPO_Starter_Package/rpo_project/montecarlo.py --mode full --runs 500 --sweep-runs 200 --workers 10 --out results/v4_0",
-  "started_utc": "2026-10-15T20:24:54+00:00",
-  "git_commit": "7f82da45e5c4fdc54aad068773281a53fc12860c",
+  "started_utc": "2026-10-17T20:04:16+00:00",
+  "git_commit": "6f4622a0001866524d5ebb40f9d705ce889dd3b8",
   "git_dirty": true,
   "python": "3.14.3",
   "numpy": "2.5.4",
@@ -157,7 +157,7 @@
     "dt_s": 0.25,
     "max_duration_s": 120.0,
     "prediction_horizon_s": 2.0,
-    "prediction_metric_start_s": 4.0,
+    "prediction_metric_start_s": 1.0,
     "target_mass_kg": 3500.0,
     "inertia_diag_kgm2": [
       2400.0,
@@ -208,7 +208,14 @@
     "barrier_radius_m": 1.48,
     "barrier_gain_mps2": 0.06,
     "barrier_scale_m": 0.15,
-    "max_safe_target_omega_rad_s": 0.05585053606381855,
+    "terminal_pos_std_thresh_m": 0.02,
+    "terminal_standoff_gain": 1.65,
+    "terminal_standoff_max_m": 0.065,
+    "barrier_pos_std_gain": 2.5,
+    "corot_rate_conf_sigma_rad_s": 0.0008726646259971648,
+    "corot_far_gain": 0.55,
+    "corot_far_span_m": 5.0,
+    "max_safe_target_omega_rad_s": 0.05672320068981571,
     "rate_gate_start_s": 10.0,
     "max_allowed_angle_std_rad": 0.3141592653589793,
     "covariance_gate_start_s": 12.0,
@@ -265,6 +272,6 @@
       "omega_factor": 0.05
     }
   },
-  "wall_time_s": 429.6,
+  "wall_time_s": 313.2,
   "n_simulations_run": 35100
 }

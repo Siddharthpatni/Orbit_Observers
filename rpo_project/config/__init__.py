@@ -13,7 +13,7 @@ import json
 import math
 from typing import Dict, Tuple
 
-MODEL_VERSION = "Phase2-RPO-MC-v4.0"
+MODEL_VERSION = "Phase2-RPO-MC-v4.1"
 MU_EARTH_M3_S2: float = 3.986004418e14
 A_GEO_M: float = 42164.0e3
 N_GEO_RAD_S: float = math.sqrt(MU_EARTH_M3_S2 / (A_GEO_M ** 3))
@@ -26,7 +26,7 @@ class SimConfig:
     dt_s: float = 0.25
     max_duration_s: float = 120.0
     prediction_horizon_s: float = 2.0          # capture-point prediction look-ahead
-    prediction_metric_start_s: float = 4.0     # ignore filter warm-up in the error metric
+    prediction_metric_start_s: float = 1.0     # evaluate prediction over [1.0 s, rate_gate_start_s]
 
     # --- Client (target) geometry -------------------------------------------
     target_mass_kg: float = 3500.0
@@ -81,13 +81,25 @@ class SimConfig:
     barrier_radius_m: float = 1.48                  # repulsive barrier starts here
     barrier_gain_mps2: float = 0.06
     barrier_scale_m: float = 0.15
+    terminal_pos_std_thresh_m: float = 0.020        # pos-sigma threshold for covariance-aware margin
+    terminal_standoff_gain: float = 1.65            # radial capture standoff per excess pos-sigma
+    terminal_standoff_max_m: float = 0.065          # max radial capture standoff (within 0.20 m window)
+    barrier_pos_std_gain: float = 2.5               # barrier inflation per excess pos-sigma
+    corot_rate_conf_sigma_rad_s: float = math.radians(0.05)  # rate-std scale for co-rotation shaping
+    corot_far_gain: float = 0.55                    # far-range tangential speed reduction when rate known
+    corot_far_span_m: float = 5.0                   # range span outside hold sphere for co-rotation ramp
 
     # --- Safety / abort gates -------------------------------------------------
-    max_safe_target_omega_rad_s: float = math.radians(3.2)
+    max_safe_target_omega_rad_s: float = math.radians(3.25)
     rate_gate_start_s: float = 10.0
     max_allowed_angle_std_rad: float = math.radians(18.0)
     covariance_gate_start_s: float = 12.0
-    max_delta_v_mps: float = 2.50
+    max_delta_v_mps: float = 2.50             # approach budget; retreat reserve is separate
+    max_allowed_position_std_m: float = 0.30
+    retreat_duration_s: float = 120.0         # maximum additional time after abort
+    retreat_delta_v_reserve_mps: float = 1.50
+    retreat_position_tol_m: float = 0.25
+    retreat_speed_tol_mps: float = 0.055
 
     # --- Terminal capture window (NOT physical latch verification) ------------
     terminal_pos_tol_m: float = 0.20
@@ -102,7 +114,9 @@ class SimConfig:
                     "kp_pos", "kd_vel", "keepout_radius_m", "terminal_pos_tol_m",
                     "terminal_vel_tol_mps", "terminal_dwell_s", "max_delta_v_mps",
                     "max_closing_speed_mps", "servicer_mass_kg", "servicer_isp_s",
-                    "barrier_scale_m", "est_min_pos_sigma_m", "est_min_angle_sigma_rad")
+                    "barrier_scale_m", "est_min_pos_sigma_m", "est_min_angle_sigma_rad",
+                    "max_allowed_position_std_m", "retreat_duration_s", "retreat_delta_v_reserve_mps",
+                    "retreat_position_tol_m", "retreat_speed_tol_mps")
         for name in positive:
             value = getattr(self, name)
             if not math.isfinite(value) or value <= 0:
@@ -123,6 +137,9 @@ class SimConfig:
         steps = self.max_duration_s / self.dt_s
         if steps < 1 or not math.isclose(steps, round(steps), abs_tol=1e-9):
             raise ValueError("max_duration_s must be a positive multiple of dt_s")
+        retreat_steps = self.retreat_duration_s / self.dt_s
+        if retreat_steps < 1 or not math.isclose(retreat_steps, round(retreat_steps), abs_tol=1e-9):
+            raise ValueError("retreat_duration_s must be a positive multiple of dt_s")
         if len(self.inertia_diag_kgm2) != 3 or any(not math.isfinite(x) or x <= 0 for x in self.inertia_diag_kgm2):
             raise ValueError("inertia_diag_kgm2 must contain three positive finite values")
         if len(self.capture_offset_body_m) != 3 or any(not math.isfinite(x) for x in self.capture_offset_body_m):

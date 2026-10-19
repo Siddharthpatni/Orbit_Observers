@@ -96,7 +96,7 @@ Because tiers share seeds, each seed gives a *pair* of outcomes. Only **discorda
 A paired test is far more sensitive than comparing two independent pass rates: 10 seeds where C2 passes and C1 fails, and none the other way, is already significant (p = 0.002), even if both rates are close to 100%.
 
 ### Zero-event bound
-With 0 keep-out violations in *n* runs, the report gives the exact one-sided 95% upper bound `1 − 0.05^(1/n)` ≈ 3/n ("rule of three"). It bounds the rate *within the model* only.
+With 0 keep-out violations in *n* independent seeds **within one tier/grid cell**, the exact one-sided 95% upper bound is `1 − 0.05^(1/n)` ≈ 3/n ("rule of three"). The report shows the largest cellwise upper bound per study. Seeds are reused across tiers and grid cells, so the pooled campaign row count is not an independent binomial sample and receives no pooled bound. For 500 seeds the zero-event bound is about 0.60%; for 200 seeds it is about 1.49%. These are pointwise bounds within the model, not simultaneous grid coverage or flight safety certification.
 
 ### How many runs?
 Runs needed for a ±*h* interval on a rate near *p*: `n ≈ 1.96²·p(1−p)/h²`.
@@ -107,7 +107,7 @@ Runs needed for a ±*h* interval on a rate near *p*: `n ≈ 1.96²·p(1−p)/h²
 | ±5 pp | 385 | 139 | 16 |
 | ±2 pp | 2 401 | 865 | 96 |
 
-Handbook guidance: 25–100 runs per cell while debugging, 500–2 000 for key cells. `plot7_convergence.png` shows the running estimate and its band as runs accumulate — once the line stays inside the band, more runs only narrow the band.
+Handbook guidance: 25–100 runs per cell while debugging, 500–2 000 for key cells. `plot7_convergence.png` shows the running estimate and its pointwise band as runs accumulate. This is a descriptive diagnostic, not proof that future estimates will stay inside the current band.
 
 ### Rare events
 A probability around 10⁻³ needs ~3 000 runs to observe even a few events. Do not report rare-event probabilities from these campaigns; the Handbook asks for them to be kept separate (e.g. importance sampling) — future work.
@@ -119,3 +119,9 @@ A probability around 10⁻³ needs ~3 000 runs to observe even a few events. Do 
 * C2-ID-only is included so a beacon that carries no rate information is shown to give **no** navigation benefit (V&V check 4).
 * Abort ≠ unsafe ≠ terminal window: reported separately everywhere.
 * Every figure shows its uncertainty band; every report carries the model's limitations.
+
+Paired McNemar p-values are unadjusted exploratory comparisons. The convergence figure shows pointwise intervals, not a sequential stopping rule; freeze the sample count before running and use a new master seed for independent confirmation.
+
+## v4.1 replication and retreat
+
+New campaigns record the exact package source files in a ZIP with SHA-256 hashes, including uncommitted code. The approach retains its original random draw arrays; extra retreat samples come from a separate deterministic stream. Retreat fuel and keep-out checks continue after abort. A new master seed tests different random realizations, but a small validation campaign is not hardware validation or a precise risk certification. Historical v4.0 CSVs retain their original stop-at-abort semantics.

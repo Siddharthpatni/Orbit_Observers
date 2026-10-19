@@ -38,7 +38,7 @@ One simulation is a two-minute rescue attempt, replayed on a computer four times
 1. The tug starts about 12 m away.
 2. It **looks** (camera, and beacon if any) and **estimates** where the handle is and how fast the client spins. It never sees the "true" answer — just like in real life.
 3. It **flies** to a waiting point 4 m out, matches the spin, then moves in to the handle.
-4. **Safety checks** run all the time. If the spin looks too fast, the view too uncertain, or the fuel too low, the tug **aborts** — it backs off rather than risk a crash.
+4. **Safety checks** run all the time. If the spin looks too fast, the view too uncertain, or the fuel too low, the tug **aborts**. In v4.1 it flies a simulated retreat, using a separate fuel reserve; the report distinguishes completion, timeout, exhausted reserve and unsafe outcomes. The historical v4.0 study stopped at the decision.
 5. The attempt counts as a success ("**terminal window met**") if the tug stays within 20 cm of the handle, moving slower than 5.5 cm/s relative to it and lined up within 15°, for 2 full seconds.
 
 Every attempt ends in exactly one of four ways:
@@ -46,7 +46,7 @@ Every attempt ends in exactly one of four ways:
 | Outcome | Meaning | Good or bad? |
 |:--|:--|:--|
 | 🟢 **Terminal window met** | Tug held position at the moving handle. | Good — a capture *could* be attempted. |
-| 🟡 **Safe abort** | Tug decided it was unsafe and stopped. | Safe, but no service today. |
+| 🟡 **Safe abort** | Tug decided it was unsafe and stopped. | Check the retreat outcome: an abort decision alone does not mean a completed retreat. |
 | 🟠 **Timeout** | Ran out of time without finishing. | Neutral. |
 | 🔴 **Keep-out violation** | Tug entered the safety bubble. | Bad — a real safety failure. |
 
@@ -60,8 +60,8 @@ A **Monte Carlo** study is like rehearsing the rescue thousands of times, each t
 
 * **Each rehearsal uses a numbered "seed"** that decides its bad luck. The same seed always gives exactly the same rehearsal, so any result can be reproduced and inspected.
 * **Fair comparisons (paired seeds).** Tiers C0, C1, C2 and C3 are tested with *the same* seeds — the same starting offsets, the same camera noise, the same thruster errors. It is like testing two cars on the same road in the same weather: if one does better, it is because of the car, not the weather.
-* **Error bars.** If 27 of 30 rehearsals succeed, we cannot be sure the true rate is exactly 90%. We show a *95% confidence interval* — e.g. "90% [74–97%]" — the range where the true rate (under our assumptions) almost certainly lies. More rehearsals give a narrower range.
-* **Fair-play test.** For each pair of tiers we count the seeds where one succeeded and the other didn't. If those swings consistently favour one tier, a statistical test (McNemar) tells us the difference is real and not luck.
+* **Error bars.** If 27 of 30 rehearsals succeed, we cannot be sure the true rate is exactly 90%. We show a *95% confidence interval* — e.g. "90% [74–97%]" — an interval from a method designed to cover the modeled rate in about 95% of repeated studies. More rehearsals give a narrower range.
+* **Fair-play test.** For each pair of tiers we count the seeds where one succeeded and the other didn't. If those swings consistently favour one tier, a statistical test (McNemar) measures evidence against equal pass probabilities under the model; it does not validate the model itself.
 
 ## 6. How to read the main figure
 
@@ -75,26 +75,26 @@ A **Monte Carlo** study is like rehearsing the rescue thousands of times, each t
 
 All the figures are explained in [`results/v4_0/report.md`](../results/v4_0/report.md), which every campaign writes automatically in plain language.
 
-## 7. What the results say
+## 7. What the historical v4.0 results say
 
-From the latest campaign: **35 100 rehearsals**, with 500 identical-luck rehearsals for every tier at every spin rate.
+From the recorded v4.0 campaign: **35 100 rehearsals**, with 500 identical-luck rehearsals for every tier at every spin rate.
 
 | Question | Answer in plain words |
 |:--|:--|
-| Does preparation matter for slowly spinning satellites (under 1°/s)? | **Hardly.** Every tier succeeds in more than 99% of rehearsals. |
-| …at 2°/s? | An unprepared satellite drops to **95%**; adding **painted markers** brings it back to **100%**. |
-| …at 3°/s? | Unprepared: **35%**. With markers: **83%**. With markers **and** a beacon that broadcasts the spin rate: **100%**. A beacon that only says "this is satellite X" helps **not at all** with navigation. |
-| Why does the beacon help? | Without it, the tug sometimes *over*-estimates the spin early in the approach and calls off the rescue to be safe. Knowing the spin removes these false alarms (17% of attempts → 0%). |
-| How good must the beacon be? | Surprisingly basic: one message per second still works when **75% of messages are lost**, and a **2-second delay** made no difference (for a satellite spinning steadily). |
-| What about 5°/s? | The tug always (and correctly) refuses — too fast to approach safely. Only a satellite that slows itself down (C3) can be served. |
-| Were there any crashes? | **23 out of 35 100**, all very shallow (under 1 cm into the safety bubble), and **only when the tug's camera was very imprecise** (position errors of 12.5 cm or more). With good cameras (10 cm or better): none. |
+| What happens at 3°/s? | C0 passes 208/500 attempts (41.6%); markers pass 459/500 (91.8%); markers plus rate telemetry pass 500/500 (100% observed). |
+| Does 500/500 mean guaranteed success? | No. Its Wilson 95% interval is about 99.24–100%, and it covers only the modeled conditions. |
+| Why does the rate beacon help? | At 3°/s, prediction RMS error falls from 7.81 cm with markers to 4.47 cm, about 42.8%; mean successful-approach delta-v falls from 1.524 to 1.482 m/s. |
+| How robust is the link? | At 1 Hz, C2 passes 200/200 at each tested loss level through 50%, and 199/200 at 75%. Separate latency tests through 2 seconds pass 200/200. Combined worst cases remain untested. |
+| What happens at 5°/s? | Non-cooperative tiers abort. C3 passes with an assumed 95% reduction in starting spin. The campaign does not test 10°/s or implement control handover. |
+| Were there any safety-boundary entries? | Zero in the recorded 35,100 runs. The smallest sampled clearance was about 2.9 mm. Real collision geometry and post-abort retreat are not modeled. |
+| Is the battery and business case proven? | No. Power is an assumed-load calculation; battery mass needs validation. Approach fuel savings do not directly measure completed services or profit. |
 
-**What this means:** cheap passive markers give the biggest single improvement; a simple spin-rate beacon makes faster-spinning satellites serviceable; and the tug needs a reasonably precise camera — or an extra safety rule — for the final metre. Without the large Monte Carlo the rare crashes would have gone unnoticed: the earlier 30-rehearsal tests showed none.
+**What this means:** the model gives a strong reason to validate markers and rate telemetry further. Use the [Phase 2 proposal](PHASE2_PROPOSAL.md) for the hardware, control-handover, interface and economics work still needed.
 
 ## 8. What the results do *not* say
 
 * They do **not** say how often real satellites tumble. They answer "what if a client spins at *x* degrees per second?".
-* Even "zero crashes in thousands of rehearsals" would **not** prove a real mission is perfectly safe — the computer model leaves out things like flexible solar panels, the physical grab, and some orbital effects.
+* Even zero keep-out violations in thousands of rehearsals would **not** prove a real mission is perfectly safe — the computer model leaves out things like flexible solar panels, the physical grab, and some orbital effects.
 * All sensor, radio and thruster numbers are *assumptions* chosen for study, not measurements of real hardware. Changing them changes the numbers; the *comparison* between tiers is the main result.
 
 ## 9. Glossary
@@ -125,3 +125,7 @@ From the latest campaign: **35 100 rehearsals**, with 500 identical-luck rehears
 | Run it yourself | [USER_GUIDE.md](USER_GUIDE.md) |
 | Check the statistics | [MONTE_CARLO_METHOD.md](MONTE_CARLO_METHOD.md) |
 | See every equation and number | [MODEL_REFERENCE.md](MODEL_REFERENCE.md) |
+
+## Current implementation
+
+v4.1 includes retreat propagation and tested command-level control handover. Read [implementation status](IMPLEMENTATION_STATUS.md) for the new validation evidence and remaining physical-model limits. The results in section 7 belong to v4.0.

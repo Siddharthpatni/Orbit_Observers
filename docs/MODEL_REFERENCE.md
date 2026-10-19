@@ -75,7 +75,7 @@ r_cap^L = R_BL(q) ρ_cap^B       v_cap^L = (R_BL ω) × r_cap^L       n_cap = r_
 
 ### Service Beacon (`beacon.py`)
 
-Packets due every `1/(rate · Δt)` steps; each lost with probability `p_loss` (Bernoulli). Content: authenticated ID, timestamp and — only for `C2_beacon` / `C3` — the body-*z* rate `ω_z + σ_g·N(0,1)`, σ_g = 0.08°/s. A packet is assimilated only once `t ≥ timestamp + latency` (the estimator raises an error if asked earlier).
+Packets due every `1/(rate · Δt)` steps; each lost with probability `p_loss` (Bernoulli). Content: an ID field labeled authenticated (no cryptographic authentication is implemented), timestamp and — only for `C2_beacon` / `C3` — the body-*z* rate `ω_z + σ_g·N(0,1)`, σ_g = 0.08°/s. A packet is assimilated only once `t ≥ timestamp + latency` (the estimator raises an error if asked earlier).
 
 ### Tier definitions
 
@@ -101,10 +101,10 @@ The capture point is predicted by rotating ρ_cap by `θ̂ + ω̂·t_h`.
 
 Two phases, both driven only by the estimate:
 
-1. **Hold** at 4 m along the estimated capture normal, co-rotating (`v_ref = ω̂ × r_ref`).
-2. **Terminal** tracking of the estimated capture point, entered once *t* ≥ 8 s, hold error < 1.25 m, speed error ≤ 0.055 m/s and attitude σ < 8°.
+1. **Hold** at 4 m along the estimated capture normal, co-rotating (`v_ref = s_corot · (ω̂ × r_ref)` where `s_corot` smoothly scales tangential speed with rate confidence and distance outside the hold sphere).
+2. **Terminal** tracking of the estimated capture point (`r_ref = r_cap_hat + standoff · n_cap_hat`), entered once *t* ≥ 8 s, hold error < 1.25 m, speed error ≤ 0.055 m/s and attitude σ < 8°.
 
-Extra logic: inside 2.8 m the approach must stay within a 55° cone around the capture normal and attitude σ < 10° (else `ABORT_CORRIDOR_MISALIGNMENT`); if the target point is on the far side of the client the reference is moved tangentially to fly around it; a repulsive barrier (gain 0.06 m/s² per 0.15 m) acts inside 1.48 m.
+Extra logic: inside 2.8 m the approach must stay within a 55° cone around the capture normal and attitude σ < 10° (else `ABORT_CORRIDOR_MISALIGNMENT`); if the target point is on the far side of the client the reference is moved tangentially to fly around it; when estimated position uncertainty `σ_r = √λ_max(P_trans[:3,:3])` exceeds 2.0 cm, a radial capture standoff `min(0.065, 1.65·(σ_r − 0.02))` m is added and the repulsive barrier radius `1.48 + 2.5·max(0, σ_r − 0.02)` m (gain 0.06 m/s² per 0.15 m) is inflated to prevent keep-out violations under degraded optical navigation.
 
 **`braking_pd` control law (default):**
 
@@ -122,7 +122,8 @@ a_cmd   = K_d (v_ref + v_close·ê − v̂) + ω̂ × v_ref − a_CW(ŝ)     K_p
 
 | Gate (on estimates) | Active from | Threshold | Status |
 |:--|:--|:--|:--|
-| Estimated tumble rate | 10 s | > 3.2°/s | `ABORT_EXCESS_TUMBLE_RATE` |
+| Position uncertainty (largest covariance eigenvalue) | immediately | σ_r > 0.30 m | `ABORT_POSITION_COVARIANCE` |
+| Estimated tumble rate | 10 s | > 3.25°/s | `ABORT_EXCESS_TUMBLE_RATE` |
 | Attitude uncertainty | 12 s | σ_θ > 18° | `ABORT_NAVIGATION_COVARIANCE` |
 | Fuel | always | Δv ≥ 2.5 m/s | `ABORT_DELTA_V_BUDGET` |
 | Corridor | inside 2.8 m | > 55° off-axis or σ_θ > 10° | `ABORT_CORRIDOR_MISALIGNMENT` |
@@ -133,7 +134,9 @@ a_cmd   = K_d (v_ref + v_close·ê − v̂) + ω̂ × v_ref − a_CW(ŝ)     K_p
 | `UNSAFE_KEEPOUT_VIOLATION` | True servicer centre inside the 1.35 m keep-out sphere. |
 | `TIMEOUT` | None of the above within 120 s. |
 
-An abort stops the run at the decision; the retreat manoeuvre and its fuel are not simulated.
+In v4.1, an abort records its reason/time and switches to active retreat toward a fixed reference 12 m from the origin in the estimated departure direction. The bounded braking controller uses estimates only. Truth and noisy sensing continue for up to 120 additional seconds, with a separate 1.50 m/s retreat reserve. Exhaustion cuts thrust and propagation continues to the retreat time limit so later sampled keep-out violations remain visible. Estimated arrival requires position error ≤0.25 m and speed ≤0.055 m/s; truth scoring independently confirms these conditions. A false arrival estimate is `ESTIMATE_MISMATCH`, not completion. This is an active point-mass retreat, not a passively safe orbit proof.
+
+`abort_triggered` records the decision even when the later outcome is unsafe. `aborted` excludes unsafe outcomes so the outcome counts remain disjoint. `delta_v_mps` and `propellant_kg` include executed retreat thrust; separate approach/retreat diagnostics are also saved. Historical v4.0 runs still stop at the abort decision.
 
 ## 9. Truth/estimate separation (Handbook §12 hard boundary)
 
@@ -144,7 +147,7 @@ Guidance, control and abort gates receive only the `RPOEstimator` object. Truth 
 | Group | Parameter | Value | Note |
 |:--|:--|--:|:--|
 | Time | `dt_s` / `max_duration_s` | 0.25 / 120 s | |
-| | `prediction_horizon_s` / `prediction_metric_start_s` | 2.0 / 4.0 s | capture-point error metric |
+| | `prediction_horizon_s` / `prediction_metric_start_s` | 2.0 / 1.0 s | capture-point error scored over `[1.0, 10.0]` s |
 | Client | `target_mass_kg` | 3 500 | not used dynamically |
 | | `inertia_diag_kgm2` | 2 400, 2 800, 3 100 | |
 | | `capture_offset_body_m` | (1.5, 0, 0) | |
@@ -166,8 +169,10 @@ Guidance, control and abort gates receive only the `RPOEstimator` object. Truth 
 | | `terminal_entry_*` | 8 s, 1.25 m, 8° | |
 | | `corridor_*` | 2.8 m, 55°, 10° | |
 | | `flyaround_*` | cos 0.15, +1.5 m, 2.5 m | |
-| | `barrier_*` | 1.48 m, 0.06 m/s², 0.15 m | |
-| Safety | rate gate / covariance gate / Δv budget | 3.2°/s @10 s / 18° @12 s / 2.5 m/s | |
+| | `barrier_*` | 1.48 m, 0.06 m/s², 0.15 m | inflated by `2.5·max(0, σ_r − 0.02)` |
+| | `terminal_standoff_*` | thresh 2 cm, gain 1.65, max 6.5 cm | covariance-aware radial margin |
+| | `corot_*` | σ_ω 0.05°/s, gain 0.55, span 5 m | proximity co-rotation shaping |
+| Safety | rate gate / covariance gate / Δv budget | 3.25°/s @10 s / 18° @12 s / 2.5 m/s | |
 | Terminal window | pos / speed / alignment / dwell | 0.20 m / 0.055 m/s / 15° / 2.0 s | |
 
 Campaign-level inputs (tumble rate, optical noise, beacon loss/rate/latency) are set per study — see [MONTE_CARLO_METHOD.md](MONTE_CARLO_METHOD.md#3-the-four-studies).
@@ -179,6 +184,16 @@ Campaign-level inputs (tumble rate, optical noise, beacon loss/rate/latency) are
 * Point-mass servicer with ideal attitude; no thruster delay or minimum impulse bit.
 * Camera dropouts and packet losses are independent per frame/packet; burst (correlated) outages are future work.
 * No contact, latch, compliance, flexible appendage or detailed client shape model — "terminal window met" is not capture.
-* No abort gate on *position* uncertainty, and the capture fixture lies only 15 cm outside the keep-out sphere. With optical position noise ≥ 12.5 cm the v4.0 campaign shows rare (≈ 0.1–0.3%), shallow (< 1 cm) keep-out violations during the terminal dwell.
+* Covariance-aware radial standoff (`≤ 6.5 cm`) and barrier inflation were used in the campaign with zero observed keep-out violations across the studied optical-noise grid (`σ_pos ≤ 25 cm`), and v4.1 now aborts when the largest principal position standard deviation exceeds 0.30 m. This threshold is an illustrative allocation, not a hardware-qualified safety limit.
 * The true tumble rate is almost constant (torque-free, small nutation), so a stale beacon rate is still nearly correct; latency results do not apply to clients whose rate changes (e.g. active detumbling, flat-spin transitions).
 * All numbers are illustrative assumptions, not measured ClearSpace or hardware data.
+
+## v4.1 additions
+
+New `SimConfig` parameters: `max_allowed_position_std_m=0.30`, `retreat_duration_s=120`, `retreat_delta_v_reserve_mps=1.50`, `retreat_position_tol_m=0.25`, `retreat_speed_tol_mps=0.055`. Position uncertainty uses the largest eigenvalue of the symmetrized 3×3 position covariance, including correlations. Approach random draws retain their original length; retreat extension draws use a separate deterministic seed stream.
+
+`ios.py` implements a standalone command-state model, bounded per-axis detumbling torques and an assumed-load RF/energy calculation. The detumbling model reports both reaching its requested residual rate and meeting the handover-rate threshold; those are distinct outcomes. These models are not coupled into the RPO C3 dynamics. Token checks are a simulation stand-in, not cryptographic authentication. Derating factors, specific energy and packaging mass remain assumptions.
+
+## 12. Evidence boundaries for the Phase 2 proposal
+
+The current stored campaign sweeps tumble only through 5°/s. C3 initializes a slower client; it does not implement detumbling, IOS transitions or docked control. All tiers share capture geometry, so the mechanical-interface benefit is not separately identified. The beacon power and retry-cost illustrations are assumption-based calculations, not measured hardware or lifecycle economics. See [PHASE2_PROPOSAL.md](PHASE2_PROPOSAL.md) for candidate requirements and validation gates.
