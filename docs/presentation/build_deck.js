@@ -81,6 +81,17 @@ cols.forEach(([n, items, col], i) => { const x = M + i * 4.3; box(s, x, 1.6, 3.5
 box(s, M, 5.8, W - 2 * M, 0.9, "Rule strip"); txt(s, "Rules built in: flight logic never sees truth. Humans approve every high-risk step. IOS handover needs a human-approved gate and aborts from any state.", { x: M + 0.3, y: 5.97, w: W - 2 * M - 0.6, h: 0.6, fontSize: 16 });
 s.addNotes("2:15. One system: a ground platform with human approval, a servicer and a prepared client. Flight logic never sees truth. The IOS handover is gated by human approval and aborts from any state.");
 
+// 5b reference architecture
+s = pres.addSlide({ masterName: "TITLE_ONLY", sectionTitle: "Technical" }); T(s, "Reference architecture: what we cover and what comes next");
+s.addImage({ path: path.join(ROOT, "docs/reference/Reference_System_Architecture.jpg"), x: M, y: 1.4, w: 7.7, h: 5.16, objectName: "Reference architecture", altText: "Reference system architecture: client satellite, OSAN service interface, servicing spacecraft, ground segment" });
+box(s, 8.6, 1.4, 4.13, 1.62, "Covered"); txt(s, "Covered", { x: 8.8, y: 1.5, w: 3.7, h: 0.35, fontSize: 18, bold: true, color: C.accent3 });
+txt(s, "Navigation aids, servicer GNC and abort logic, ground platform and approvals", { x: 8.8, y: 1.9, w: 3.75, h: 1.05, fontSize: 14 });
+box(s, 8.6, 3.12, 4.13, 1.9, "Partial"); txt(s, "Partial", { x: 8.8, y: 3.22, w: 3.7, h: 0.35, fontSize: 18, bold: true, color: C.accent2 });
+txt(s, "Service Beacon (no interface or health fields yet), IOS mode, health monitoring (fuel and logs only), capture geometry without loads", { x: 8.8, y: 3.62, w: 3.75, h: 1.35, fontSize: 14 });
+box(s, 8.6, 5.12, 4.13, 1.44, "Next"); txt(s, "Not modelled", { x: 8.8, y: 5.22, w: 3.7, h: 0.35, fontSize: 18, bold: true, color: C.accent4 });
+txt(s, "Utility and fluid transfer, upgrade port, robotic servicing, power and thermal lines", { x: 8.8, y: 5.62, w: 3.75, h: 0.9, fontSize: 14 });
+s.addNotes("Reference diagram from the team. It confirms our three layers and adds a client health monitoring system, power management, a utility interface panel and an upgrade port. We cover navigation aids, servicer GNC and abort logic, and the ground platform; the beacon, IOS and health monitoring are partial; utility and fluid transfer, the upgrade port and robotic servicing are next. Full table: docs/PRESENTATION_PACK.md section 10.");
+
 // 6 proof
 s = pres.addSlide({ masterName: "TITLE_ONLY", sectionTitle: "Technical" }); T(s, "Built, tested, and honest about its limits");
 stat(s, M, 1.55, 2.8, "74", "automated tests pass", C.accent3); stat(s, M + 3.0, 1.55, 2.8, "41,240", "simulated approaches (35,100 + 6,140)", C.accent1); stat(s, M + 6.0, 1.55, 2.8, "0 / 6,140", "keep-out violations (a count, not a bound)", C.accent2); stat(s, M + 9.0, 1.55, 3.1, "1.2 kg", "fuel gauge error from 800 kg", C.accent3);

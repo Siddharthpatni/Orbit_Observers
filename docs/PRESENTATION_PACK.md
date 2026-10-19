@@ -260,3 +260,34 @@ Feedback log (playbook format; fill after each expert session):
 4. Replace assumed costs and budget with quotes.
 5. Contact model and joint IOS attitude dynamics.
 6. Re-export the old PPTX/PDF exports from the corrected pitch script, or retire them in favour of the new deck.
+
+---
+
+## 10. Reference architecture check
+
+Reference diagram supplied by the team: [reference/Reference_System_Architecture.jpg](reference/Reference_System_Architecture.jpg) (client satellite with health monitoring and OSAN interface; OSAN service interface; servicing spacecraft; ground segment and service management). It agrees with our three layers and **adds four blocks we had not treated as first-class**: a client Health Monitoring System, a Power Management Unit that isolates service interfaces, a modular Utility Interface Panel, and an Expansion/Upgrade Port. Coverage of every block:
+
+| Reference block | What it contains | Our status | Where / gap |
+|:--|:--|:--|:--|
+| Client: Health Monitoring System | Data acquisition, FDIR, remaining-life estimate, health storage | **Partial** | Fuel gauge with leak and sensor flag and remaining delta-v (`onboard/fuel.py`), hash-chained on-board log (`onboard/recorder.py`). No general FDIR or remaining-life model for other subsystems |
+| Client: Power Management Unit | Regulated power, isolate service interfaces | **Partial** | Beacon main-bus fault isolation and leakage in the power budget; bench test B2. No PMU model |
+| Client: OBC with servicing mode and encryption | IOS mode control, security | **Partial** | `ios.py` state machine, coupled to approach outcome. Encryption is a token flag |
+| Client: communication system | Main comms, proximity comms (RF/optical) | **Partial** | Beacon packets with loss and latency, downlink passes. No optical link |
+| OSAN: Independent Service Beacon | ID, health summary, interface type and location, RF/optical broadcast, authentication | **Partial** | C2 beacon carries identity and rate. Interface type/location and health summary specified (27-byte packet) but not modelled |
+| OSAN: navigation aids | Fiducials, retroreflectors, known geometry, visible with no power | **Covered** | C1 tier, fiducial vision model |
+| OSAN: structural capture interface | Standard docking or grapple, load transfer | **Partial** | Capture point geometry only; no loads, no contact |
+| OSAN: utility interface panel | Power, data (Ethernet/SpaceWire), optional fluid, optional thermal | **Concept only** | Cost in product tiers 3 and 4; no model |
+| OSAN: expansion / upgrade port | Mechanical, power, data for propulsion or payload PODs | **Concept only** | Tier 4 cost only |
+| Servicer: communication and authentication | RF/optical transceiver, proximity data link | **Partial** | Beacon reception; authentication simulated |
+| Servicer: GNC and navigation | Cameras, lidar, rendezvous guidance | **Covered** | Vision model, Kalman estimators, guidance, abort gates |
+| Servicer: robotic servicing system | Capture mechanism, inspection, refuel and repair, POD handling | **Not modelled** | Terminal window only |
+| Servicer: utility transfer system | Power conditioning, data, fluid transfer, thermal | **Not modelled** | |
+| Servicer: avionics | Mission management, service control, safety and abort logic | **Covered** | `safety.py`, IOS coupling, retreat |
+| Ground: operator / customer | Receives health reports, reviews and approves service | **Covered (demo)** | Customer role, approvals, cases in the dashboard |
+| Ground: service provider platform | Health processing, need assessment, mission planning, fleet management | **Covered (demo)** | Health agent, maintenance cases, 11-stage missions, feasibility card, downlink and fuel pages |
+| Ground: servicing mission control | RPO and docking control, execution, post-service verification | **Partial (demo)** | Mission stages and approval gates; no real command path |
+| Connection types | Power, data, fluid, thermal, RF beacon, RF/optical proximity, mechanical, modular attachment | **Partial** | We model RF beacon, proximity navigation, simplified mechanical capture and data. Power, fluid and thermal lines are not modelled |
+
+**What to say:** the reference shows the full target system; our study quantifies the part that decides whether a degraded client can be approached (beacon, navigation aids, capture geometry, IOS handover) and demonstrates the ground and health-monitoring layers. Power, fluid, thermal and robotic transfer are the next stages, not claimed.
+
+**New action items from this check:** (1) add a client Health Monitoring System scope (FDIR, remaining-life) to the technical plan and work package 5; (2) model interface type/location and health summary in the beacon; (3) decide whether utility and upgrade ports are in the study or explicitly out of scope, and say so on the architecture slide.
