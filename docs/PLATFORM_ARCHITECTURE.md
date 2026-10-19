@@ -156,17 +156,19 @@ sequenceDiagram
 | Simulation | CLI, Slurm on MeluXina | Same code run as batch jobs; results indexed by `config_hash`; interactive pilot (30 runs ≈ 1 min) for what-if |
 | Security | none | Authenticated, replay-protected commands (CCSDS SDLS-style **[verify]**), RBAC, signed audit export |
 
-## 9. Build path
+## 9. Build path and status
 
-| Step | Deliverable | Depends on |
+| Step | Deliverable | Status |
 |:--|:--|:--|
-| 1 | Add `serviceTier` and beacon/IOS fields to frontend types and seed data | none |
-| 2 | Export a feasibility table from existing campaigns (`summary_*.csv`) and show it on the Missions page | v4.1 results |
-| 3 | FastAPI service exposing cases, approvals, audit and a read-only feasibility endpoint | step 2 |
-| 4 | Replace `services/api.ts` mock with the service; persist audit | step 3 |
-| 5 | Couple `ios.py` to the RPO loop; approval gate drives IOS handover | IOS-01 |
-| 6 | Hardware-in-loop beacon bench; replace assumed noise and power | BEACON-01 |
-| 7 | Costed economics and break-even by tier | ECON-01 |
+| 1 | `serviceTier` / `estTumbleDegS` on frontend `Satellite`, seeded per customer (demo values) | **Done** (`lib/types.ts`, `data/seed.ts`) |
+| 2 | Feasibility table exported from campaign (`tools/export_feasibility.py` → `data/feasibility.json`) and shown on the Missions page (`FeasibilityCard`) | **Done**; out-of-range tumble rates are flagged, no interpolation |
+| 3 | FastAPI service `platform_api/`: `/feasibility`, `/feasibility/tiers`, `/audit`, `/audit/verify`, `/health` | **Done**, 6 tests; cases, approvals and missions are **not** yet server-side |
+| 4 | Frontend uses the backend when `VITE_API_URL` is set, otherwise the bundled table; audit writes use a SHA-256 hash chain (tamper-evident, SQLite) | **Partly done**: feasibility fetch wired; the Zustand store still holds cases/approvals/missions and does not yet post audit events |
+| 5 | Couple `ios.py` to the RPO loop; approval gate drives IOS handover | Open (needs new physics and tests) |
+| 6 | Hardware-in-loop beacon bench | Open (hardware) |
+| 7 | Costed economics and break-even by tier | Open (cost data) |
+
+Run: `pip install -r requirements-platform.txt && uvicorn platform_api.app:app --port 8000`, then `VITE_API_URL=http://localhost:8000 npm run dev` in `satellite-ops-platform/`. Refresh the table after a new campaign: `python tools/export_feasibility.py results/<campaign>`.
 
 ## 10. Honest limits
 

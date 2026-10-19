@@ -18,3 +18,47 @@ export const api = {
   setAutonomy: (on: boolean) => useStore.getState().setAutonomy(on),
   reset: () => useStore.getState().reset(),
 }
+
+// --- Feasibility (RPO Monte Carlo evidence) -------------------------------------------------
+import feasibilityData from '@/data/feasibility.json'
+
+export interface FeasCell {
+  tier: string; tumble_deg_s: number; n_runs: number; n_pass: number; n_abort: number; n_unsafe: number; n_timeout: number
+  p_terminal_pass: number; p_terminal_pass_ci95_low: number; p_terminal_pass_ci95_high: number; p_abort: number; p_unsafe: number
+  mean_delta_v_mps: number | null; mean_time_to_capture_s: number | null
+}
+export interface Feasibility {
+  cell: FeasCell; withinRange: boolean; notes: string[]; source: 'campaign file' | 'backend'
+  provenance: { model_version: string; config_hash: string; master_seed: number; paired_seeds_per_cell: number }; caveat: string
+}
+
+/** Offline lookup in the bundled campaign table (same logic as platform_api/feasibility.py). */
+export function lookupFeasibility(tier: string, tumble: number): Feasibility | null {
+  const cells = (feasibilityData.cells as FeasCell[]).filter((c) => c.tier === tier)
+  if (!cells.length) return null
+  const grid = cells.map((c) => c.tumble_deg_s).sort((a, b) => a - b)
+  const cell = cells.reduce((b, c) => (Math.abs(c.tumble_deg_s - tumble) < Math.abs(b.tumble_deg_s - tumble) ? c : b))
+  const notes: string[] = []
+  const within = tumble >= grid[0] && tumble <= grid[grid.length - 1]
+  if (tumble > grid[grid.length - 1]) notes.push(`${tumble} deg/s is above the tested range (max ${grid[grid.length - 1]}); no evidence`)
+  else if (cell.tumble_deg_s !== tumble) notes.push(`Nearest tested grid point ${cell.tumble_deg_s} deg/s used (no interpolation)`)
+  if (tier === 'C3_ios_mode') notes.push('C3 assumes a 95% initial-spin reduction; IOS handover is not coupled to this result')
+  const d = feasibilityData
+  return { cell, withinRange: within, notes, source: 'campaign file', caveat: d.caveat,
+    provenance: { model_version: d.model_version, config_hash: d.config_hash, master_seed: d.master_seed, paired_seeds_per_cell: d.paired_seeds_per_cell } }
+}
+
+/** Uses the backend when VITE_API_URL is set and reachable; otherwise the bundled table. */
+export async function fetchFeasibility(tier: string, tumble: number): Promise<Feasibility | null> {
+  const base = import.meta.env.VITE_API_URL as string | undefined
+  if (base) {
+    try {
+      const r = await fetch(`${base}/feasibility?tier=${encodeURIComponent(tier)}&tumble_deg_s=${tumble}`)
+      if (r.ok) {
+        const j = await r.json()
+        return { cell: j.cell, withinRange: j.within_tested_range, notes: j.notes, source: 'backend', provenance: j.provenance, caveat: j.caveat }
+      }
+    } catch { /* fall through to offline table */ }
+  }
+  return lookupFeasibility(tier, tumble)
+}

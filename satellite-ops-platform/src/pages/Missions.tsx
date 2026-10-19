@@ -4,6 +4,7 @@ import { Check, Lock, Play, Printer } from 'lucide-react'
 import { useScoped } from '@/store/hooks'
 import { Card, CardHeader, PageHeader, RiskBadge, StatusBadge, DemoTag, Empty } from '@/components/ui'
 import { api } from '@/services/api'
+import FeasibilityCard from '@/components/FeasibilityCard'
 import { canOperate } from '@/lib/access'
 import { MISSION_STAGES } from '@/lib/types'
 import { cn, fmtDT } from '@/lib/util'
@@ -62,6 +63,7 @@ export default function Missions() {
             <CardHeader title="Checklist" sub={`${m.checklist.filter((c) => c.done).length}/${m.checklist.length}`} />
             <ul className="p-4 space-y-1.5 text-sm">{m.checklist.map((c) => <li key={c.text} className={cn('flex gap-2', !c.done && 'text-mute')}><Check size={14} className={c.done ? 'text-ok' : 'opacity-20'} />{c.text}</li>)}</ul>
           </Card>
+          <FeasibilityCard sat={sat(m.satId)} />
           <Card className="p-4 text-sm"><h4 className="font-semibold mb-2">Assigned assets</h4>
             <div>{sat(m.servicerId)?.name} <span className="text-mute">({m.servicerId})</span></div><div>{sat(m.satId)?.name} <span className="text-mute">({m.satId})</span></div></Card>
           <Card>

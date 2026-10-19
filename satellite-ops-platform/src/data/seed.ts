@@ -1,6 +1,13 @@
 import type { Agent, AgentEvent, Approval, AuditEvent, CommMsg, CommSession, Component, MaintCase, Mission, Policy, PolicyEval, Satellite } from '@/lib/types'
 import { rng, riskFor } from '@/lib/util'
 
+// Demo assignment of serviceability tier / tumble estimate per customer satellite (not real data).
+const TIER_DEMO: Record<string, [Satellite['serviceTier'], number]> = {
+  'CS-101': ['C2_beacon', 3], 'CS-102': ['C1_fiducials', 2], 'CS-201': ['C3_ios_mode', 1], 'CS-202': ['C1_fiducials', 1],
+  'CS-203': ['C2_beacon', 0.5], 'CS-301': ['C1_fiducials', 3], 'CS-302': ['C2_id_only', 1], 'CS-401': ['C0_unprepared', 3],
+  'CS-501': ['C0_unprepared', 0.5], 'CS-502': ['C1_fiducials', 5],
+}
+
 export const OPERATORS = ['Helios Telecom', 'Aurora Earth Observation', 'Nordlicht Navigation', 'Vesta Broadcast', 'Meridian Weather']
 export const CUSTOMER_DEMO_OPERATOR = 'Aurora Earth Observation'
 
@@ -60,6 +67,7 @@ function mkSat(
   return {
     id, name, kind, operator, role, orbit, status, agentId, policyId: kind === 'customer' ? `POL-${id}` : undefined,
     condition: worst >= 80 ? 'All subsystems within nominal limits' : `Degraded: ${components.filter((c) => c.health < 80).map((c) => c.name).join(', ')}`,
+    serviceTier: TIER_DEMO[id]?.[0], estTumbleDegS: TIER_DEMO[id]?.[1],
     components,
     history: [
       { date: '2025-11-02', text: 'Routine AI health baseline established' },

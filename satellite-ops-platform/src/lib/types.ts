@@ -18,6 +18,12 @@ export interface Component {
   recommendation?: string
 }
 
+export type ServiceTier = 'C0_unprepared' | 'C1_fiducials' | 'C2_id_only' | 'C2_beacon' | 'C3_ios_mode'
+export const TIER_LABEL: Record<ServiceTier, string> = {
+  C0_unprepared: 'C0 unprepared', C1_fiducials: 'C1 fiducials', C2_id_only: 'C2 beacon (ID only)',
+  C2_beacon: 'C2 beacon (rate)', C3_ios_mode: 'C3 IOS mode',
+}
+
 export interface Satellite {
   id: string
   name: string
@@ -29,6 +35,8 @@ export interface Satellite {
   condition: string
   agentId: string
   policyId?: string
+  serviceTier?: ServiceTier // client-side serviceability provisions (customer satellites)
+  estTumbleDegS?: number // demo estimate of client tumble rate
   components: Component[]
   history: { date: string; text: string }[]
 }
