@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Orbit Observers intro</title>
+<style>
+  html,body{margin:0;background:#04070d;overflow:hidden}
+  #stage{position:relative;width:1920px;height:1080px;background:radial-gradient(1200px 700px at 50% 35%,#0b1a33 0%,#04070d 70%);font-family:-apple-system,"Helvetica Neue",Arial,sans-serif;color:#e8f0ff;overflow:hidden}
+  .abs{position:absolute}
+  .title{left:0;right:0;text-align:center;font-weight:800;letter-spacing:.18em}
+  .grad{background:linear-gradient(90deg,#00b4ff,#7aa2ff,#4ade80);-webkit-background-clip:text;color:transparent}
+  .card{position:absolute;width:318px;height:360px;border:2px solid #1d3558;border-radius:22px;background:rgba(10,22,42,.82);box-sizing:border-box;padding:26px 24px}
+  .card h3{margin:14px 0 8px;font-size:30px;letter-spacing:.06em;color:#00b4ff}
+  .card p{margin:0;font-size:23px;line-height:1.35;color:#c4d3ee}
+  .num{font-size:20px;color:#6b86b3;letter-spacing:.2em}
+  .big{font-size:46px;font-weight:800;color:#4ade80}
+  .foot{left:0;right:0;text-align:center;font-size:22px;color:#6b86b3;letter-spacing:.04em}
+</style></head><body>
+<div id="stage">
+  <svg id="sky" class="abs" width="1920" height="1080" style="left:0;top:0"></svg>
+  <div id="t1" class="abs title grad" style="top:190px;font-size:118px">ORBIT OBSERVERS</div>
+  <div id="t2" class="abs title" style="top:340px;font-size:38px;letter-spacing:.08em;font-weight:500;color:#c4d3ee">Satellites that stay serviceable, even on their worst day</div>
+  <div id="hdr" class="abs title grad" style="top:80px;font-size:56px;text-align:left;left:77px;right:auto">ORBIT OBSERVERS &nbsp;·&nbsp; WHAT WE ARE BUILDING</div>
+  <div id="cards"></div>
+  <svg id="flow" class="abs" width="1920" height="1080" style="left:0;top:0"></svg>
+  <div id="cap" class="abs" style="left:77px;right:77px;top:735px;text-align:center;font-size:27px;color:#c4d3ee;white-space:nowrap"><span style="color:#6b86b3">At 3°/s tumble, terminal window met (model): </span><b style="color:#ff7b7b">41.6%</b> unprepared &nbsp;→&nbsp; <b style="color:#fcd34d">91.8%</b> with markers &nbsp;→&nbsp; <b style="color:#4ade80">100%</b> with marker + rate beacon</div>
+  <div id="end" class="abs title" style="top:760px;font-size:44px;letter-spacing:.06em;font-weight:600"><span class="grad">Minimum preparation &nbsp;·&nbsp; Safe when degraded &nbsp;·&nbsp; Scalable roadmap</span></div>
+  <div id="foot" class="abs foot" style="top:1000px">Model-based study with assumed parameters · demo data is simulated · not flight-qualified</div>
+</div>
+<script>
+const NS="http://www.w3.org/2000/svg", $=id=>document.getElementById(id);
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)), ease=x=>1-Math.pow(1-clamp(x),3), seg=(t,a,b)=>ease((t-a)/(b-a));
+const mk=(p,tag,at)=>{const e=document.createElementNS(NS,tag);for(const k in at)e.setAttribute(k,at[k]);p.appendChild(e);return e};
+
+// ---- sky scene -------------------------------------------------------------
+const sky=$("sky"); const CX=960,CY=620;
+mk(sky,"circle",{cx:CX,cy:CY,r:170,fill:"url(#eg)"});
+const defs=mk(sky,"defs",{}); const g=mk(defs,"radialGradient",{id:"eg",cx:"35%",cy:"30%"});
+mk(g,"stop",{offset:"0%","stop-color":"#2a6fd6"}); mk(g,"stop",{offset:"100%","stop-color":"#0a2350"});
+const rings=[[300,0.9,"#4ade80"],[400,0.6,"#00b4ff"],[510,0.4,"#fcd34d"]].map(([r,w,c])=>{mk(sky,"ellipse",{cx:CX,cy:CY,rx:r*1.35,ry:r*.5,fill:"none",stroke:"#1d3558","stroke-width":2,"stroke-dasharray":"6 8"});return{r,w,c,el:mk(sky,"circle",{r:9,fill:c})}});
+const servicer=mk(sky,"polygon",{points:"0,-16 16,0 0,16 -16,0",fill:"#00b4ff"});
+const client=mk(sky,"g",{}); mk(client,"rect",{x:-34,y:-34,width:68,height:68,rx:6,fill:"#17294a",stroke:"#7aa2ff","stroke-width":3}); mk(client,"rect",{x:-10,y:-10,width:20,height:20,fill:"#fcd34d"}); mk(client,"line",{x1:34,y1:0,x2:60,y2:0,stroke:"#fcd34d","stroke-width":4});
+const keep=mk(sky,"circle",{r:84,fill:"none",stroke:"#ff7b7b","stroke-width":2,"stroke-dasharray":"5 6"});
+function skyScene(t){
+  const a=seg(t,0,0.6), fade=1-seg(t,2.0,3.0);
+  const s=1-0.0*seg(t,2,3);
+  sky.style.opacity=a*fade; sky.style.transform=`translate(${-seg(t,2,3)*0}px,${-seg(t,2,3)*60}px) scale(${1-0.15*seg(t,2,3)})`; sky.style.transformOrigin=`${CX}px ${CY}px`;
+  rings.forEach((o,i)=>{const th=t*o.w*1.6+i*2.1;o.el.setAttribute("cx",CX+o.r*1.35*Math.cos(th));o.el.setAttribute("cy",CY+o.r*.5*Math.sin(th))});
+  const k=seg(t,1.2,2.6); const ccx=CX+330, ccy=CY-150;       // tumbling client + approaching servicer
+  client.setAttribute("transform",`translate(${ccx},${ccy}) rotate(${t*70})`); keep.setAttribute("cx",ccx); keep.setAttribute("cy",ccy);
+  const sx=ccx-420+k*270, sy=ccy+140-k*95; servicer.setAttribute("transform",`translate(${sx},${sy}) rotate(${t*40})`);
+  [client,keep,servicer].forEach(e=>e.style.opacity=clamp((t-1.0)*2)*fade);
+  $("t1").style.opacity=seg(t,0.2,0.9)*(1-seg(t,2.0,2.7)); $("t1").style.transform=`translateY(${-(1-seg(t,0.2,0.9))*0-seg(t,2,2.7)*40}px)`;
+  $("t2").style.opacity=seg(t,0.9,1.6)*(1-seg(t,2.0,2.7));
+}
+// ---- flow ------------------------------------------------------------------
+const STAGES=[
+ {n:"01",h:"PREPARE",p:"Markers, independent beacon, IOS mode on the client",icon:"prep"},
+ {n:"02",h:"SIMULATE",p:"35,100 paired Monte Carlo runs on HPC",icon:"mc"},
+ {n:"03",h:"COUPLE",p:"IOS handover and abort driven by the real approach outcome",icon:"ios"},
+ {n:"04",h:"OPERATE",p:"AI agents, human approvals, hash-chained audit",icon:"ops"},
+ {n:"05",h:"MEASURE",p:"On-board logs, downlink and fuel gauging",icon:"meas"}];
+const X0=77, GAP=362, TOP=270, cards=$("cards");
+STAGES.forEach((s,i)=>{const d=document.createElement("div");d.className="card";d.style.left=(X0+i*GAP-0)+"px";d.style.top=TOP+"px";
+  d.innerHTML=`<div class="num">${s.n}</div><svg width="270" height="130" id="ic${i}"></svg><h3>${s.h}</h3><p>${s.p}</p>`;cards.appendChild(d);s.el=d;s.svg=d.querySelector("svg")});
+const flow=$("flow");
+const arrows=STAGES.slice(1).map((_,i)=>mk(flow,"path",{d:`M${X0+i*GAP+318+6},${TOP+180} L${X0+(i+1)*GAP-6},${TOP+180}`,stroke:"#00b4ff","stroke-width":4,fill:"none","stroke-linecap":"round","stroke-dasharray":"60","stroke-dashoffset":"60"}));
+const track=mk(flow,"line",{x1:X0+159,y1:TOP+395,x2:X0+159+4*GAP,y2:TOP+395,stroke:"#1d3558","stroke-width":3});
+const pulse=mk(flow,"circle",{r:9,fill:"#4ade80"});
+// stage icons
+function icons(t,i,k){ // k 0..1 reveal progress
+  const s=STAGES[i].svg; s.innerHTML="";
+  if(STAGES[i].icon==="prep"){mk(s,"rect",{x:20,y:20,width:80,height:80,rx:8,fill:"#17294a",stroke:"#7aa2ff","stroke-width":3}); mk(s,"rect",{x:48,y:48,width:24,height:24,fill:"#fcd34d",opacity:k});
+    mk(s,"circle",{cx:150,cy:60,r:10+k*14,fill:"none",stroke:"#4ade80","stroke-width":3,opacity:k}); mk(s,"circle",{cx:150,cy:60,r:5,fill:"#4ade80"});
+    mk(s,"rect",{x:200,y:34,width:56,height:52,rx:8,fill:"none",stroke:"#00b4ff","stroke-width":3,opacity:k})}
+  if(STAGES[i].icon==="mc"){[["#ff7b7b",.416,"C0"],["#fcd34d",.918,"C1"],["#4ade80",1,"C2"]].forEach(([c,v,l],j)=>{const h=82*v*k;mk(s,"rect",{x:30+j*80,y:115-h,width:56,height:h,rx:4,fill:c});mk(s,"text",{x:58+j*80,y:128,fill:"#9fb4d8","font-size":16,"text-anchor":"middle"}).textContent=l;mk(s,"text",{x:58+j*80,y:108-h,fill:c,"font-size":16,"font-weight":700,"text-anchor":"middle",opacity:clamp(k*3-2)}).textContent=["42%","92%","100%"][j]})}
+  if(STAGES[i].icon==="ios"){const lab=["STANDBY","APPROACH","HANDOVER","MATED"];lab.forEach((_,j)=>{const on=k*4>j;mk(s,"circle",{cx:30+j*70,cy:60,r:14,fill:on?"#00b4ff":"#17294a",stroke:"#00b4ff","stroke-width":3}); if(j)mk(s,"line",{x1:30+(j-1)*70+14,y1:60,x2:30+j*70-14,y2:60,stroke:on?"#00b4ff":"#1d3558","stroke-width":3})});
+    mk(s,"path",{d:"M170,86 Q120,125 40,86",stroke:"#ff7b7b","stroke-width":3,fill:"none","stroke-dasharray":"6 6",opacity:k});mk(s,"text",{x:120,y:122,fill:"#ff7b7b","font-size":16,"text-anchor":"middle",opacity:k}).textContent="abort from any state"}
+  if(STAGES[i].icon==="ops"){[0,1,2].forEach(j=>{mk(s,"rect",{x:20,y:18+j*36,width:230*clamp(k*3-j),height:24,rx:6,fill:["#7aa2ff","#fcd34d","#4ade80"][j]})});mk(s,"text",{x:20,y:128,fill:"#9fb4d8","font-size":16,opacity:k}).textContent="agents · approve · audit"}
+  if(STAGES[i].icon==="meas"){let d="M10,100";for(let x=0;x<=250;x+=10){d+=` L${10+x},${100-x*0.28*k-6*Math.sin(x/12)*k}`}mk(s,"path",{d,stroke:"#7aa2ff","stroke-width":3,fill:"none"});
+    for(let j=0;j<8;j++)mk(s,"rect",{x:14+j*32,y:112,width:22,height:10,fill:j<k*8?"#4ade80":"#17294a"})}
+}
+function flowScene(t){
+  const hdr=seg(t,2.3,3.0); $("hdr").style.opacity=hdr; $("hdr").style.transform=`translateY(${(1-hdr)*-20}px)`;
+  STAGES.forEach((s,i)=>{const a=2.5+i*0.95, k=seg(t,a,a+0.8); s.el.style.opacity=k; s.el.style.transform=`translateY(${(1-k)*40}px)`;
+    s.el.style.borderColor=(t>a+0.4&&t<a+1.6)?"#00b4ff":"#1d3558"; icons(t,i,seg(t,a+0.3,a+1.3))});
+  arrows.forEach((p,i)=>{const a=2.5+(i+1)*0.95-0.25; p.setAttribute("stroke-dashoffset",60*(1-seg(t,a,a+0.45)))});
+  const total=(t-2.9)/(7.5-2.9); const pr=clamp(total); const x=X0+159+pr*(4*GAP); pulse.setAttribute("cx",x); pulse.setAttribute("cy",TOP+395);
+  pulse.style.opacity=(t>2.9&&t<7.6)?1:0; track.style.opacity=seg(t,2.6,3.2)*(1-seg(t,8.3,8.7));
+  $("cap").style.opacity=seg(t,4.2,4.9)*(1-seg(t,8.3,8.7)); $("end").style.opacity=seg(t,8.3,9.0); $("foot").style.opacity=seg(t,8.4,9.0)*0.9;
+  const fin=seg(t,9.6,10); $("stage").style.filter=`brightness(${1-0.0*fin})`;
+}
+window.setT=t=>{skyScene(t);flowScene(t)};
+setT(0);
+</script></body></html>
