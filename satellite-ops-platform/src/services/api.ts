@@ -5,12 +5,35 @@
  */
 import { useStore } from '@/store/useStore'
 
+const ACTOR: Record<string, string> = { operator: 'Operator', engineer: 'Engineer', aisup: 'AI supervisor', approver: 'Approval authority', customer: 'Customer', admin: 'Admin' }
+
+/**
+ * Ask the server to apply/validate a rule-bound action first (platform_api/domain.py). If no backend is configured or it
+ * is unreachable, the local store enforces the same rules (demo mode). A server rejection (4xx) blocks the action.
+ */
+async function serverGuard(path: string, body: Record<string, unknown>): Promise<{ ok: boolean; reason?: string }> {
+  if (!API_BASE) return { ok: true }
+  const role = useStore.getState().role
+  try {
+    await pushNow()
+    const r = await fetch(`${API_BASE}${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body, role, actor: ACTOR[role] ?? role }),
+    })
+    if (r.ok) return { ok: true }
+    if (r.status >= 400 && r.status < 500) return { ok: false, reason: `Server: ${(await r.json().catch(() => ({}))).detail ?? r.statusText}` }
+    return { ok: true } // server error: fall back to local rules
+  } catch { return { ok: true } } // unreachable: demo mode
+}
+
 export const api = {
   injectAnomaly: () => useStore.getState().injectAnomaly(),
   diagnoseAnomaly: () => useStore.getState().diagnoseAnomaly(),
   evaluateDemoPolicy: () => useStore.getState().evaluateDemoPolicy(),
-  decideApproval: (...a: Parameters<ReturnType<typeof useStore.getState>['decideApproval']>) => useStore.getState().decideApproval(...a),
-  advanceMission: (id: string) => useStore.getState().advanceMission(id),
+  decideApproval: (id: string, decision: 'approved' | 'rejected' | 'hold' | 'info-requested', notes: string) =>
+    serverGuard(`/approvals/${id}/decide`, { decision, notes }).then((g) => { if (g.ok) useStore.getState().decideApproval(id, decision, notes); return g }),
+  advanceMission: (id: string): Promise<{ ok: boolean; reason?: string }> =>
+    serverGuard(`/missions/${id}/advance`, {}).then((g) => (g.ok ? useStore.getState().advanceMission(id) : g)),
   createMaintRequest: (s: string, c: string) => useStore.getState().createMaintRequest(s, c),
   createWorkOrder: (id: string) => useStore.getState().createWorkOrder(id),
   setCaseStage: (id: string, s: number) => useStore.getState().setCaseStage(id, s),
@@ -50,7 +73,7 @@ export function lookupFeasibility(tier: string, tumble: number): Feasibility | n
 
 /** Uses the backend when VITE_API_URL is set and reachable; otherwise the bundled table. */
 export async function fetchFeasibility(tier: string, tumble: number): Promise<Feasibility | null> {
-  const base = import.meta.env.VITE_API_URL as string | undefined
+  const base = API_BASE
   if (base) {
     try {
       const r = await fetch(`${base}/feasibility?tier=${encodeURIComponent(tier)}&tumble_deg_s=${tumble}`)
@@ -70,12 +93,13 @@ export async function fetchFeasibility(tier: string, tumble: number): Promise<Fe
  * interactive source in demo mode; the server re-enforces the rules (see platform_api/domain.py).
  * Failures are ignored so the demo keeps working offline.
  */
-export function startBackendMirror(): (() => void) | undefined {
-  const base = import.meta.env.VITE_API_URL as string | undefined
-  if (!base) return undefined
-  const seenAudit = new Set<string>()
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const push = async () => {
+const API_BASE = import.meta.env.VITE_API_URL as string | undefined
+const seenAudit = new Set<string>()
+
+async function pushNow() {
+  const base = API_BASE
+  if (!base) return
+  {
     const s = useStore.getState()
     try {
       await fetch(`${base}/sync`, {
@@ -95,6 +119,12 @@ export function startBackendMirror(): (() => void) | undefined {
       }
     } catch { /* offline: ignore */ }
   }
+}
+
+export function startBackendMirror(): (() => void) | undefined {
+  if (!API_BASE) return undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const push = pushNow
   const unsub = useStore.subscribe(() => { clearTimeout(timer); timer = setTimeout(push, 800) })
   timer = setTimeout(push, 800)
   return () => { unsub(); clearTimeout(timer) }

@@ -15,6 +15,7 @@ export default function Approvals() {
   const d = useScoped()
   const [filter, setFilter] = useState('pending')
   const [selId, setSelId] = useState<string>()
+  const [err, setErr] = useState('')
   const [dlg, setDlg] = useState<Decision | null>(null)
   const [notes, setNotes] = useState('')
   const list = d.approvals.filter((a) => filter === 'all' || (filter === 'pending' ? ['pending', 'hold', 'info-requested'].includes(a.status) : a.status === filter))
@@ -69,8 +70,9 @@ export default function Approvals() {
         </Card>
       </div>
       <Modal open={!!dlg} onClose={() => setDlg(null)} title={dlg ? `${LABEL[dlg]}: ${sel?.id}` : ''}
-        footer={<><button className="btn" onClick={() => setDlg(null)}>Cancel</button><button className={cn('btn', dlg === 'approved' ? 'btn-ok' : dlg === 'rejected' ? 'btn-bad' : 'btn-primary')} disabled={needNotes && !notes.trim()} onClick={() => { api.decideApproval(sel!.id, dlg!, notes || LABEL[dlg!]); setDlg(null) }}>Confirm</button></>}>
+        footer={<><button className="btn" onClick={() => setDlg(null)}>Cancel</button><button className={cn('btn', dlg === 'approved' ? 'btn-ok' : dlg === 'rejected' ? 'btn-bad' : 'btn-primary')} disabled={needNotes && !notes.trim()} onClick={async () => { const r = await api.decideApproval(sel!.id, dlg!, notes || LABEL[dlg!]); if (r.ok) { setErr(''); setDlg(null) } else setErr(r.reason ?? 'Rejected by server') }}>Confirm</button></>}>
         <p className="text-sm text-mute mb-2">{dlg === 'approved' ? 'This records authorization and advances the linked ticket and mission.' : 'This decision is written to the audit log.'}</p>
+        {err && <p className="text-sm text-bad mb-2" role="alert">{err}</p>}
         <label className="text-sm">Decision notes {needNotes && <span className="text-bad">*</span>}<textarea className="input w-full mt-1 h-24" value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
       </Modal>
     </>

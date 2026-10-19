@@ -217,9 +217,21 @@ questions an expert reviewer would most likely ask me, with a suggested honest a
 
 ---
 
+## Part B2 — Fit with the NeoSpace / SPAIDER playbook
+
+Source: `NeoSpace Hackathon - SPAIDER Student Playbook.pptx`. The five Q1–Q5 above are the **Session 1** checkpoint questions (Concept V1 + system sketch + evidence). The playbook's prompt shape is *context + question → constraints + assumptions → requested output*, which Part B follows. Later sessions reuse the same repo material:
+
+| Playbook session | Checkpoint asks | Where the answer already is |
+|:--|:--|:--|
+| 1 Concept definition | users/problem, parts, normal/failure, standards, existing offers | Part A above; [SCOPE_ARCHITECTURE.md](SCOPE_ARCHITECTURE.md) |
+| 2 Integrated solution | feedback effects, requirements, uncertainty, buyer/business, costs and feasibility tests | requirements in [PHASE2_PROPOSAL.md](PHASE2_PROPOSAL.md) §5; [ECONOMICS_MODEL.md](ECONOMICS_MODEL.md); [BEACON_BENCH_PLAN.md](BEACON_BENCH_PLAN.md) |
+| 3 Proposal + plan (10–15 pages: technology 5, business 3, implementation 4) | what changed, customers/revenue, R&D milestones, funds, evidence/risks | proposal §6 work packages, roadmap in SCOPE_ARCHITECTURE §10, economics assumptions (to be replaced with real quotes) |
+
+Playbook-specific gaps: patent search (Espacenet / IPIL) is not done, and the Q4/Q5 tables are unsourced until the SPAIDER libraries (code in the playbook) or web sources are checked. Record expert feedback in a table of comment / response / owner.
+
 ## Part C — Fix list before the meeting
 1. ~~Add `docs/IMPLEMENTATION_STATUS.md`~~ (done).
 2. Re-export the PPTX/PDF from the corrected pitch script.
-3. Build the sourced state-of-the-art table (Q5) and standards map (Q4).
+3. Build the sourced state-of-the-art table (Q5) and standards map (Q4), including a patent check.
 4. Decide whether the ops-platform demo is in scope for this checkpoint; if yes, state clearly it is a simulated concept.
 5. Cost the integration of each tier (ECON-01) or say plainly it is not yet done.

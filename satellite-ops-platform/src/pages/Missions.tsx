@@ -50,7 +50,7 @@ export default function Missions() {
           <div className="px-4 pb-4 border-t border-line pt-3">
             {complete ? <span className="text-ok text-sm">Mission complete.</span> : (
               <div className="flex flex-wrap items-center gap-3">
-                <button className="btn btn-primary" disabled={!mayOp} onClick={() => { const r = api.advanceMission(m.id); setErr(r.ok ? '' : r.reason ?? '') }}><Play size={14} />Advance to “{MISSION_STAGES[m.stage + 1] ?? 'Complete'}”</button>
+                <button className="btn btn-primary" disabled={!mayOp} onClick={async () => { const r = await api.advanceMission(m.id); setErr(r.ok ? '' : r.reason ?? '') }}><Play size={14} />Advance to “{MISSION_STAGES[m.stage + 1] ?? 'Complete'}”</button>
                 {!mayOp && <span className="text-xs text-mute">Operator or engineer role required.</span>}
                 {blocked && <span className="text-xs text-warn">Blocked: {gate} requires human approval - <Link className="underline" to="/approvals">open approvals</Link></span>}
                 {err && <span className="text-xs text-bad" role="alert">{err}</span>}
