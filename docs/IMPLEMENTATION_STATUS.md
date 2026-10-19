@@ -15,11 +15,12 @@
 | Beacon survival sizing, bench plan B1–B7, virtual bench | Implemented (no hardware) | `rpo_project/bench.py`, [BEACON_BENCH_PLAN.md](BEACON_BENCH_PLAN.md) |
 | Ground API: feasibility, hash-chained audit, server-side approval/mission rules | Implemented, 10 tests | `platform_api/` |
 | On-board recorder + pass-based downlink + ground hash-chain check; dashboard page "Logs & Downlink" | Implemented, 6 tests; demo data simulated | `onboard/recorder.py`, `tools/export_downlink_demo.py`, `pages/Downlink.tsx` |
+| Propellant gauging (book-keeping + PVT, 3-state filter, leak/sensor flag) and "Fuel Measurement" page | Implemented, 8 tests; demo data simulated | `onboard/fuel.py`, `tools/export_fuel_demo.py`, `pages/Fuel.tsx` |
 | New-seed validation campaign (master seed 20261019) | Run, 6,140 simulations | [results/v4_1_validation/report.md](../results/v4_1_validation/report.md) |
 
 ## Verification
 
-`python -m unittest discover -s rpo_project/tests -t .` → **66 tests, all pass** (run in the project `.venv`, 19 Oct 2026). Includes the 10 Handbook §13 V&V checks, statistics against hand-computed values, chunk/merge integrity, parallel = serial, retreat and IOS tests.
+`python -m unittest discover -s rpo_project/tests -t .` → **74 tests, all pass** (run in the project `.venv`, 19 Oct 2026). Includes the 10 Handbook §13 V&V checks, statistics against hand-computed values, chunk/merge integrity, parallel = serial, retreat and IOS tests.
 
 ## v4.1 validation results (descriptive)
 
@@ -37,7 +38,7 @@
 | Cryptographic authentication | `authenticated_id` is a flag |
 | Joint loss × latency, burst outages, thruster failures | Link robustness only tested one factor at a time |
 | 10°/s and degraded-client fault cases | Envelope ends at 5°/s |
-| Hardware data (optics, beacon power, RF) | All noise and power numbers are assumptions |
+| Hardware data (optics, beacon power, RF, tank sensors) | All noise, power and gauging accuracy numbers are assumptions; no thermal-gauging or real-gas (xenon) model |
 | Real cost data (ECON-01) and sourced state-of-the-art comparison | Economics is an assumption-based first pass; no real prices |
 | Presentation exports | `Orbit_Observers_Team_Presentation.pptx/.pdf` predate corrections; use [PLAIN_LANGUAGE_PITCH_DECK.md](PLAIN_LANGUAGE_PITCH_DECK.md) |
 | Independent replication / safety review | Required by RPO-04 |

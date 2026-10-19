@@ -6,6 +6,7 @@ import { Layout } from './components/layout/Layout'
 import Dashboard from './pages/Dashboard'
 import Fleet from './pages/Fleet'
 import Downlink from './pages/Downlink'
+import Fuel from './pages/Fuel'
 import Monitoring from './pages/Monitoring'
 import Agents from './pages/Agents'
 import Comms from './pages/Comms'
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="agents" element={<Agents />} />
         <Route path="comms" element={<Comms />} />
         <Route path="downlink" element={<Downlink />} />
+        <Route path="fuel" element={<Fuel />} />
         <Route path="policies" element={<Policies />} />
         <Route path="approvals" element={<Approvals />} />
         <Route path="maintenance" element={<Maintenance />} />
